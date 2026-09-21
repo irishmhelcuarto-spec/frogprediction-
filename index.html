@@ -1,0 +1,1276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Frogdiction — Predict the market</title>
+<meta name="description" content="Onchain prediction markets built for Robinhood Chain Stock Tokens. Testnet preview.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=DM+Sans:wght@400;500;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<style>
+/* ───────── Tokens ───────── */
+:root, .dark-scope {
+  --bg:#06110b; --bg2:#091a10; --card:#0c2015; --card2:#112a1b;
+  --line:rgba(150,240,70,.16); --line2:rgba(150,240,70,.5);
+  --text:#eef8ea; --muted:#95ad9c;
+  --lime:#a4f23d; --ink:#0a1a06; --limet:#b7ff5c;
+  --up:#6fdc3c; --down:#f2555f; --upbg:rgba(111,220,60,.14); --downbg:rgba(242,85,95,.14);
+  --warn:#ffcf5a;
+  --f-display:'Fredoka','Baloo 2','Trebuchet MS',system-ui,sans-serif;
+  --f-body:'DM Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --f-script:'Caveat','Segoe Script','Bradley Hand',cursive;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg:#f0f7ea; --bg2:#e6f1dd; --card:#ffffff; --card2:#f4faee;
+    --line:rgba(35,110,15,.2); --line2:rgba(45,135,15,.55);
+    --text:#0e2312; --muted:#4d6852;
+    --lime:#8fe02b; --ink:#0a1a06; --limet:#2b7f0a;
+    --up:#2c9a12; --down:#d3323c; --upbg:rgba(44,154,18,.12); --downbg:rgba(211,50,60,.1);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg:#f0f7ea; --bg2:#e6f1dd; --card:#ffffff; --card2:#f4faee;
+  --line:rgba(35,110,15,.2); --line2:rgba(45,135,15,.55);
+  --text:#0e2312; --muted:#4d6852;
+  --lime:#8fe02b; --ink:#0a1a06; --limet:#2b7f0a;
+  --up:#2c9a12; --down:#d3323c; --upbg:rgba(44,154,18,.12); --downbg:rgba(211,50,60,.1);
+  color-scheme: light;
+}
+
+/* ───────── Base ───────── */
+:root { box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px); }
+html { scroll-padding-top:calc(env(safe-area-inset-top,0px) + 84px); scroll-behavior:smooth; -webkit-text-size-adjust:100%; }
+*,*::before,*::after { box-sizing:inherit; }
+body {
+  margin:0; background-color:var(--bg);
+  background-image:radial-gradient(1100px 520px at 88% -8%, rgba(120,220,60,.07), transparent 60%);
+  color:var(--text); font:400 16px/1.55 var(--f-body); overflow-x:hidden;
+}
+h1,h2,h3,h4 { font-family:var(--f-display); margin:0; line-height:1.1; letter-spacing:.005em; }
+p { margin:0; }
+a { color:inherit; }
+button { font:inherit; color:inherit; cursor:pointer; }
+svg { display:block; }
+:focus-visible { outline:2px solid var(--lime); outline-offset:3px; border-radius:6px; }
+.wrap { width:100%; max-width:1200px; margin:0 auto; padding-left:20px; padding-right:20px; }
+.skip { position:absolute; left:-999px; top:8px; background:var(--lime); color:var(--ink); padding:8px 14px; border-radius:8px; z-index:100; }
+.skip:focus { left:8px; }
+.up-c { color:var(--up); } .down-c { color:var(--down); }
+.muted { color:var(--muted); }
+.sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.ico { width:1.1em; height:1.1em; flex:none; }
+
+/* ───────── Buttons ───────── */
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid transparent; border-radius:999px; padding:10px 20px; font-weight:700; font-size:15px; text-decoration:none; transition:transform .12s ease, box-shadow .12s ease, background .12s ease; white-space:nowrap; }
+.btn:active { transform:translateY(1px); }
+.btn-lime { background:var(--lime); color:var(--ink); }
+.btn-lime:hover { box-shadow:0 0 0 4px rgba(164,242,61,.22); }
+.btn-ghost { background:transparent; border-color:var(--line2); color:var(--text); }
+.btn-ghost:hover { background:var(--line); }
+.btn-lg { padding:14px 26px; font-size:16px; }
+.btn-sm { padding:7px 14px; font-size:13px; }
+.btn[disabled], .btn[aria-disabled="true"] { opacity:.5; cursor:not-allowed; box-shadow:none; transform:none; }
+.icon-btn { width:40px; height:40px; border-radius:999px; border:1px solid var(--line); background:transparent; display:grid; place-items:center; }
+.icon-btn:hover { background:var(--line); }
+.burger { display:none; }
+.only-m { display:none !important; }
+.navnet { padding:10px 14px; font-size:13px; color:var(--muted); }
+button.navlink { background:none; border:0; text-align:left; padding:12px 14px; font-size:16px; color:var(--muted); font-weight:500; border-radius:999px; }
+.rbtn { border-radius:12px; padding:9px 8px; font-size:14px; font-weight:700; border:1px solid transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; line-height:1.2; }
+.rbtn .l { display:flex; align-items:center; gap:5px; }
+.rbtn small { font-size:11.5px; font-weight:500; opacity:.85; font-variant-numeric:tabular-nums; }
+.rbtn.up { background:var(--lime); color:var(--ink); }
+.rbtn.down { background:var(--downbg); color:var(--down); border-color:var(--down); }
+.rbtn:hover:not([disabled]) { filter:brightness(1.08); }
+.rbtn[disabled] { opacity:.45; cursor:not-allowed; }
+
+/* ───────── Header ───────── */
+.strip { background:rgba(255,207,90,.13); border-bottom:1px solid rgba(255,207,90,.32); text-align:center; font-size:13px; padding:8px 16px; }
+header.site { position:sticky; top:env(safe-area-inset-top,0px); z-index:50; background:color-mix(in srgb, var(--bg) 84%, transparent); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); border-bottom:1px solid var(--line); }
+.bar { display:flex; align-items:center; gap:18px; height:68px; position:relative; }
+.brand { display:flex; align-items:center; gap:10px; text-decoration:none; font-family:var(--f-display); font-weight:700; font-size:22px; }
+.brand b { color:var(--limet); font-weight:700; }
+.logo { width:40px; height:32px; }
+.nav { display:flex; gap:4px; margin-left:10px; }
+.nav a { white-space:nowrap; padding:8px 12px; border-radius:999px; color:var(--muted); text-decoration:none; font-weight:500; font-size:14px; }
+.nav a:hover, .nav a[aria-current="page"] { color:var(--text); background:var(--line); }
+.tools { margin-left:auto; display:flex; align-items:center; gap:10px; }
+.netsel { position:relative; }
+.netbtn { white-space:nowrap; display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; border:1px solid var(--line2); background:transparent; font-size:13px; font-weight:500; }
+.dot { width:8px; height:8px; border-radius:50%; background:var(--lime); box-shadow:0 0 0 3px rgba(164,242,61,.2); flex:none; }
+.dot.warn { background:var(--warn); box-shadow:0 0 0 3px rgba(255,207,90,.2); }
+.netmenu { position:absolute; right:0; top:calc(100% + 8px); width:280px; background:var(--card); border:1px solid var(--line2); border-radius:14px; padding:6px; box-shadow:0 18px 40px rgba(0,0,0,.35); z-index:60; }
+.netmenu button { width:100%; text-align:left; background:none; border:0; border-radius:10px; padding:10px 12px; display:block; }
+.netmenu button:hover:not([disabled]) { background:var(--line); }
+.netmenu button[disabled] { opacity:.55; cursor:not-allowed; }
+.netmenu small { display:block; color:var(--muted); font-size:12px; margin-top:2px; }
+.wbtn.wrong { background:var(--warn); color:#2a1d00; }
+.wbtn .addr { font-variant-numeric:tabular-nums; }
+
+/* ───────── Hero ───────── */
+.hero { position:relative; overflow:hidden; color:var(--text); background:#04110a; isolation:isolate; }
+.hero-bg { position:absolute; inset:0; width:100%; height:100%; z-index:-1; }
+.hero-grid { display:grid; grid-template-columns:1.05fr .95fr; align-items:center; gap:24px; padding-top:56px; padding-bottom:40px; min-height:520px; }
+.badge-test { display:inline-block; border:1px solid var(--lime); color:var(--limet); border-radius:8px; padding:3px 12px; font-size:12px; font-weight:700; letter-spacing:.14em; background:rgba(164,242,61,.08); }
+.hero h1 { font-size:clamp(3rem,7.4vw,5.4rem); font-weight:700; margin:18px 0 16px; line-height:.98; }
+.hero h1 span { color:var(--limet); display:block; }
+.hero .lede { font-size:clamp(1rem,1.6vw,1.15rem); max-width:26em; color:var(--text); opacity:.92; }
+.pills { display:flex; flex-wrap:wrap; gap:8px; margin:20px 0 26px; }
+.pill { display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line2); background:rgba(8,26,15,.7); border-radius:999px; padding:6px 13px; font-size:12.5px; font-weight:500; }
+.pill .ico { color:var(--limet); }
+.cta-row { display:flex; flex-wrap:wrap; gap:12px; }
+.hero-art { position:relative; justify-self:center; width:min(100%,470px); }
+.hero-art > svg { width:88%; height:auto; filter:drop-shadow(0 20px 50px rgba(120,255,140,.18)); }
+.script { position:absolute; right:0; top:30%; font-family:var(--f-script); font-size:clamp(1.3rem,2.4vw,1.75rem); line-height:1.05; transform:rotate(-7deg); color:var(--text); text-shadow:0 2px 12px rgba(0,0,0,.6); }
+.bob { animation:bob 5.5s ease-in-out infinite; transform-origin:50% 90%; }
+.pulse { animation:pulse 3.6s ease-in-out infinite; transform-origin:150px 222px; }
+@keyframes bob { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-6px); } }
+@keyframes pulse { 0%,100% { opacity:.9; } 50% { opacity:1; filter:brightness(1.25); } }
+
+/* ───────── Sections ───────── */
+.sec { padding-top:64px; padding-bottom:8px; }
+.sec-head { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:22px; flex-wrap:wrap; }
+.eyebrow { display:inline-flex; align-items:center; gap:8px; font-size:11.5px; font-weight:700; letter-spacing:.12em; color:var(--limet); background:rgba(164,242,61,.1); padding:4px 12px; border-radius:999px; margin-bottom:12px; }
+.eyebrow .dot { width:7px; height:7px; box-shadow:none; }
+h2.t { font-size:clamp(1.8rem,3.6vw,2.6rem); font-weight:600; }
+h2.t em { font-style:normal; color:var(--limet); }
+.sub { color:var(--muted); margin-top:8px; max-width:34em; }
+.link-more { color:var(--limet); font-weight:700; text-decoration:none; display:inline-flex; gap:6px; align-items:center; }
+.link-more:hover { text-decoration:underline; }
+
+/* ───────── Market cards ───────── */
+.grid-markets { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+.mcard { background:linear-gradient(180deg,var(--card2),var(--card)); border:1px solid var(--line); border-radius:18px; padding:16px; display:flex; flex-direction:column; gap:12px; cursor:pointer; transition:border-color .15s ease, transform .15s ease; position:relative; }
+.mcard:hover { border-color:var(--line2); }
+.mcard.hi { border-color:var(--lime); box-shadow:0 0 0 1px var(--lime), 0 12px 40px rgba(120,240,60,.14); }
+.mc-head { display:flex; align-items:center; gap:10px; }
+.tile { width:38px; height:38px; border-radius:11px; display:grid; place-items:center; font-family:var(--f-display); font-weight:700; font-size:13px; color:#fff; background:hsl(var(--h) 52% 30%); border:1px solid hsl(var(--h) 60% 45% / .6); flex:none; }
+.tick { font-weight:700; line-height:1.1; }
+.cname { font-size:12px; color:var(--muted); line-height:1.2; }
+.dur { margin-left:auto; border:1px solid var(--line2); border-radius:8px; padding:2px 9px; font-size:11px; font-weight:700; color:var(--muted); }
+.state-tag { position:absolute; top:12px; right:12px; }
+.price { font-family:var(--f-display); font-size:1.8rem; font-weight:600; line-height:1; }
+.chg { font-size:13px; font-weight:700; margin-left:6px; }
+.chg.up { color:var(--up); } .chg.down { color:var(--down); }
+.mini { width:100%; height:66px; }
+.pools { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding-top:2px; }
+.pool small { display:block; font-size:11px; font-weight:700; letter-spacing:.06em; }
+.pool.up small { color:var(--up); } .pool.down small { color:var(--down); }
+.pool b { font-family:var(--f-display); font-size:1.45rem; font-weight:600; line-height:1.15; display:block; }
+.pool span { font-size:12.5px; color:var(--muted); }
+.meta2 { display:grid; grid-template-columns:1fr 1fr; gap:6px; border-top:1px solid var(--line); padding-top:11px; }
+.meta2 small { display:block; font-size:11px; color:var(--muted); }
+.meta2 b { font-size:13.5px; font-variant-numeric:tabular-nums; }
+.btnrow { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:auto; }
+.tag { display:inline-block; font-size:11px; font-weight:700; border-radius:6px; padding:2px 8px; border:1px solid var(--line2); color:var(--muted); }
+.tag.live { color:var(--up); border-color:var(--up); background:var(--upbg); }
+.tag.lock { color:var(--warn); border-color:var(--warn); }
+.tag.done { color:var(--limet); border-color:var(--line2); }
+
+/* ───────── How it works ───────── */
+.steps { display:grid; grid-template-columns:1fr auto 1fr auto 1fr; align-items:center; gap:14px; }
+.step { display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:center; }
+.step svg { width:150px; height:112px; }
+.sn { width:34px; height:34px; border-radius:50%; background:var(--lime); color:var(--ink); font-weight:700; display:grid; place-items:center; font-family:var(--f-display); margin-bottom:8px; }
+.step h3 { font-size:1.15rem; font-weight:600; margin-bottom:4px; }
+.step p { font-size:14px; color:var(--muted); }
+.arrow { color:var(--limet); opacity:.8; }
+
+/* ───────── Why ───────── */
+.why { display:grid; grid-template-columns:1.15fr .85fr; gap:24px; align-items:stretch; }
+.why-cards { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.feat { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; }
+.feat .fi { width:40px; height:40px; border-radius:12px; display:grid; place-items:center; background:rgba(164,242,61,.14); color:var(--limet); margin-bottom:12px; }
+.feat h3 { font-size:1.05rem; font-weight:600; margin-bottom:6px; }
+.feat p { font-size:14px; color:var(--muted); }
+.scene { position:relative; border-radius:20px; overflow:hidden; border:1px solid var(--line); min-height:300px; background:#04110a; }
+.scene svg { position:absolute; inset:0; width:100%; height:100%; }
+.scene .script { right:16px; top:14px; }
+
+/* ───────── CTA band ───────── */
+.cta { display:grid; grid-template-columns:auto 1fr 360px; align-items:center; gap:26px; border:1px solid var(--line); border-radius:22px; padding:22px 26px; background:linear-gradient(120deg,var(--card2),var(--card)); margin-top:64px; }
+.cta > svg { width:190px; height:150px; }
+.cta h2 { font-size:clamp(1.5rem,3vw,2.1rem); font-weight:600; max-width:15em; }
+.cta p { color:var(--muted); margin:8px 0 16px; max-width:30em; }
+.stats { border:1px solid var(--line); border-radius:16px; padding:16px 18px; background:var(--bg2); }
+.stats h4 { font-size:.9rem; margin-bottom:12px; display:flex; align-items:center; gap:8px; color:var(--limet); font-family:var(--f-body); font-weight:700; letter-spacing:.06em; }
+.stats dl { display:grid; grid-template-columns:1fr 1fr; gap:12px 16px; margin:0; }
+.stats dt { font-size:12px; color:var(--muted); }
+.stats dd { margin:0; font-family:var(--f-display); font-size:1.6rem; font-weight:600; }
+.stats .note { font-size:12px; color:var(--muted); margin-top:12px; }
+
+/* ───────── Footer ───────── */
+footer.site { margin-top:64px; border-top:1px solid var(--line); background:var(--bg2); padding:34px 0 28px; }
+.foot { display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:24px; }
+.foot h4 { font-family:var(--f-body); font-size:13px; font-weight:700; margin-bottom:10px; }
+.foot a { display:block; color:var(--muted); text-decoration:none; font-size:14px; padding:3px 0; }
+.foot a:hover { color:var(--text); }
+.foot .fine { grid-column:1 / -1; border-top:1px solid var(--line); padding-top:16px; font-size:12.5px; color:var(--muted); display:flex; flex-wrap:wrap; gap:8px 24px; justify-content:space-between; }
+.social { display:flex; gap:8px; margin-top:12px; }
+.social a { width:36px; height:36px; border:1px solid var(--line); border-radius:50%; display:grid; place-items:center; padding:0; }
+
+/* ───────── Pages ───────── */
+.page { padding-top:34px; padding-bottom:12px; }
+.page h1 { font-size:clamp(2rem,4.4vw,3rem); font-weight:700; }
+.crumb { font-size:13px; color:var(--muted); text-decoration:none; display:inline-flex; margin-bottom:14px; }
+.crumb:hover { color:var(--text); }
+.filters { display:flex; flex-wrap:wrap; gap:8px 24px; margin:22px 0 22px; }
+.fgroup { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.chip { border:1px solid var(--line); background:transparent; border-radius:999px; padding:6px 14px; font-size:13px; font-weight:500; color:var(--muted); }
+.chip:hover { color:var(--text); border-color:var(--line2); }
+.chip[aria-pressed="true"] { background:var(--lime); border-color:var(--lime); color:var(--ink); font-weight:700; }
+.empty { border:1px dashed var(--line2); border-radius:18px; padding:34px 20px; text-align:center; color:var(--muted); }
+.empty svg { width:84px; height:68px; margin:0 auto 10px; }
+.empty b { display:block; color:var(--text); font-size:1.05rem; margin-bottom:4px; font-family:var(--f-display); }
+.mp { display:grid; grid-template-columns:minmax(0,1fr) 380px; gap:22px; align-items:start; }
+.mp-head { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:14px; }
+.mp-head .tile { width:52px; height:52px; font-size:16px; border-radius:14px; }
+.mp-head h1 { font-size:clamp(1.7rem,3.4vw,2.4rem); }
+.bigprice { font-family:var(--f-display); font-size:clamp(2rem,4vw,2.8rem); font-weight:600; margin:6px 0 14px; }
+.panel { background:linear-gradient(180deg,var(--card2),var(--card)); border:1px solid var(--line); border-radius:18px; padding:18px; }
+.chart { width:100%; height:auto; }
+.chart .g { stroke:var(--line); stroke-width:1; }
+.chart text { fill:var(--muted); font:500 11px var(--f-body); }
+.chart .ref { stroke:var(--muted); stroke-dasharray:4 4; stroke-width:1; opacity:.8; }
+.chart .mk { stroke:var(--limet); stroke-dasharray:3 4; stroke-width:1; }
+.nochart { display:grid; place-items:center; height:66px; border:1px dashed var(--line); border-radius:10px; color:var(--muted); font-size:12px; text-align:center; padding:0 8px; }
+.txs .notice.ok { border-color:var(--up); background:var(--upbg); }
+.txs .notice.err { border-color:var(--down); background:var(--downbg); }
+.txs a { color:var(--limet); font-weight:700; }
+.legend { display:flex; flex-wrap:wrap; gap:6px 18px; font-size:12.5px; color:var(--muted); margin-top:8px; }
+.legend i { display:inline-block; width:14px; height:0; border-top:2px solid var(--limet); vertical-align:middle; margin-right:6px; }
+.legend i.d { border-top-style:dashed; border-color:var(--muted); }
+.facts { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:14px; }
+.fact small { display:block; font-size:12px; color:var(--muted); }
+.fact b { font-size:1.05rem; font-variant-numeric:tabular-nums; }
+.side { position:sticky; top:calc(env(safe-area-inset-top,0px) + 84px); display:grid; gap:14px; }
+.poolbar { display:flex; height:12px; border-radius:99px; overflow:hidden; background:var(--line); margin:10px 0 12px; }
+.poolbar i { display:block; } .poolbar .u { background:var(--up); } .poolbar .d { background:var(--down); }
+.two { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.rowkv { display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid var(--line); font-size:14px; }
+.rowkv:last-child { border-bottom:0; }
+.rowkv span:first-child { color:var(--muted); }
+.rowkv span:last-child { text-align:right; word-break:break-word; }
+.result { border-radius:14px; padding:14px 16px; border:1px solid var(--line2); background:var(--card2); }
+.result.UP { border-color:var(--up); background:var(--upbg); } .result.DOWN { border-color:var(--down); background:var(--downbg); }
+.tablewrap { overflow-x:auto; border:1px solid var(--line); border-radius:16px; background:var(--card); }
+table { border-collapse:collapse; width:100%; min-width:720px; font-size:14px; }
+th, td { text-align:left; padding:12px 14px; border-bottom:1px solid var(--line); white-space:nowrap; }
+th { color:var(--muted); font-weight:500; font-size:12.5px; }
+tr:last-child td { border-bottom:0; }
+.hw { display:grid; grid-template-columns:minmax(0,1fr) 380px; gap:22px; align-items:start; margin-top:22px; }
+ol.big { list-style:none; margin:0; padding:0; display:grid; gap:12px; counter-reset:s; }
+ol.big li { counter-increment:s; display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:start; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
+ol.big li::before { content:counter(s); width:30px; height:30px; border-radius:50%; background:var(--lime); color:var(--ink); font-weight:700; display:grid; place-items:center; font-family:var(--f-display); }
+ol.big b { display:block; }
+ol.big span { color:var(--muted); font-size:14px; }
+.dash-stats { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin:22px 0; }
+.dash-stats .panel { padding:14px 16px; }
+.dash-stats small { color:var(--muted); font-size:12.5px; display:block; }
+.dash-stats b { font-family:var(--f-display); font-size:1.5rem; font-weight:600; }
+.stack { display:grid; gap:18px; }
+.stack h3 { font-size:1.2rem; font-weight:600; margin-bottom:10px; }
+
+/* ───────── Modal ───────── */
+dialog { border:1px solid var(--line2); border-radius:22px; background:var(--card); color:var(--text); padding:0; width:min(440px, calc(100% - 24px)); max-height:calc(100% - 24px); overflow-y:auto; overflow-x:hidden; box-shadow:0 30px 80px rgba(0,0,0,.5); }
+dialog::backdrop { background:rgba(2,10,5,.72); -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); }
+.dlg { padding:20px; display:grid; grid-template-columns:minmax(0,1fr); gap:14px; }
+.dlg-head { display:flex; align-items:center; gap:12px; }
+.dlg-head h3 { font-size:1.35rem; font-weight:600; }
+.dlg-head .x { margin-left:auto; }
+.field { border:1px solid var(--line2); border-radius:14px; padding:10px 14px; display:flex; align-items:center; gap:10px; background:var(--bg2); }
+.field:focus-within { border-color:var(--lime); box-shadow:0 0 0 3px rgba(164,242,61,.2); }
+.field input { flex:1; min-width:0; background:none; border:0; color:var(--text); font:600 1.6rem var(--f-display); outline:none; }
+.field span { color:var(--muted); font-size:12.5px; font-weight:700; }
+.chips { display:flex; gap:8px; flex-wrap:wrap; }
+.err { color:var(--down); font-size:13px; min-height:1.2em; }
+.summary { border:1px solid var(--line); border-radius:14px; padding:4px 14px; background:var(--bg2); }
+.summary .big { font-family:var(--f-display); font-size:1.5rem; font-weight:600; }
+.notice { border:1px solid rgba(255,207,90,.4); background:rgba(255,207,90,.1); border-radius:12px; padding:10px 12px; font-size:13px; }
+.risk { font-size:12px; color:var(--muted); }
+.acts { display:grid; gap:10px; }
+.acts .btn { width:100%; padding:14px; font-size:16px; }
+
+/* ───────── Toast ───────── */
+#toast { position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom,0px)); transform:translate(-50%,20px); background:var(--card); color:var(--text); border:1px solid var(--line2); border-radius:14px; padding:12px 18px; font-size:14px; box-shadow:0 14px 40px rgba(0,0,0,.45); opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease; z-index:200; max-width:calc(100% - 32px); }
+#toast.on { opacity:1; transform:translate(-50%,0); }
+
+/* ───────── Responsive ───────── */
+@media (max-width:1100px) {
+  .grid-markets { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .cta { grid-template-columns:auto 1fr; } .cta .stats { grid-column:1 / -1; }
+  .mp, .hw { grid-template-columns:1fr; } .side { position:static; }
+  .dash-stats { grid-template-columns:repeat(3,1fr); }
+}
+@media (max-width:1000px) {
+  .burger { display:grid; }
+  .nav { display:none; position:absolute; left:0; right:0; top:100%; margin:0; flex-direction:column; background:var(--bg); border-bottom:1px solid var(--line); padding:10px 16px 14px; }
+  .nav.open { display:flex; }
+  .nav a { padding:12px 14px; font-size:16px; }
+  .only-m { display:block !important; }
+}
+@media (max-width:900px) {
+  .hero-grid { grid-template-columns:1fr; padding-top:34px; }
+  .hero-art { width:min(78%,380px); }
+  .steps { grid-template-columns:1fr; } .arrow { display:none; }
+  .why { grid-template-columns:1fr; } .scene { min-height:260px; }
+  .foot { grid-template-columns:1fr 1fr; }
+}
+@media (max-width:700px) {
+  .netbtn .long { display:none; }
+  .wbtn { padding:9px 14px; }
+}
+@media (max-width:640px) {
+  .wrap { padding-left:16px; padding-right:16px; }
+  .sec { padding-top:44px; }
+  .grid-markets.snap { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:12px; margin:0 -16px; padding:0 16px 10px; -webkit-overflow-scrolling:touch; }
+  .grid-markets.snap > .mcard { flex:0 0 84%; scroll-snap-align:center; }
+  .grid-markets { grid-template-columns:1fr; }
+  .why-cards { grid-template-columns:1fr; }
+  .cta { grid-template-columns:1fr; padding:20px 18px; } .cta > svg { margin:0 auto; }
+  .facts { grid-template-columns:1fr 1fr; }
+  .dash-stats { grid-template-columns:1fr 1fr; }
+  .step { grid-template-columns:110px 1fr; } .step svg { width:110px; height:84px; }
+  .brand { font-size:19px; } .logo { width:34px; height:27px; }
+  .tools { gap:6px; }
+  .script { right:0; top:30%; }
+  dialog { width:100%; max-width:none; margin:auto 0 0; max-height:92%; border-radius:22px 22px 0 0; border-bottom:0; }
+  .dlg { padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px)); }
+}
+@media (max-width:560px) {
+  .netsel, #themeBtn { display:none; }
+  .bar { gap:8px; }
+  .brand { font-size:17px; gap:7px; min-width:0; }
+  .logo { width:30px; height:24px; }
+  .wbtn { padding:8px 12px; font-size:12.5px; }
+  .tools .icon-btn { width:38px; height:38px; }
+}
+@media (max-width:400px) {
+  .brand span { font-size:18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- Shared SVG art -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="gFrog" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#96ec44"/><stop offset="1" stop-color="#4fb81f"/></linearGradient>
+    <radialGradient id="gOrb" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="#eaffc8" stop-opacity=".95"/><stop offset=".5" stop-color="#7fe6a8" stop-opacity=".55"/><stop offset="1" stop-color="#17866a" stop-opacity=".8"/></radialGradient>
+    <linearGradient id="gFlame" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2a8"/><stop offset=".5" stop-color="#ffab3d"/><stop offset="1" stop-color="#ff5a3d" stop-opacity="0"/></linearGradient>
+
+    <symbol id="frog-head" viewBox="0 0 200 160">
+      <circle cx="56" cy="50" r="31" fill="url(#gFrog)" stroke="#2c8a16" stroke-width="3"/>
+      <circle cx="144" cy="50" r="31" fill="url(#gFrog)" stroke="#2c8a16" stroke-width="3"/>
+      <ellipse cx="100" cy="98" rx="88" ry="58" fill="url(#gFrog)" stroke="#2c8a16" stroke-width="3"/>
+      <circle cx="56" cy="50" r="21" fill="#fff"/><circle cx="144" cy="50" r="21" fill="#fff"/>
+      <circle cx="59" cy="52" r="12.5" fill="#10260f"/><circle cx="141" cy="52" r="12.5" fill="#10260f"/>
+      <circle cx="63" cy="47" r="4.5" fill="#fff"/><circle cx="145" cy="47" r="4.5" fill="#fff"/>
+      <ellipse cx="32" cy="112" rx="12" ry="7.5" fill="#ff9aa2" opacity=".55"/><ellipse cx="168" cy="112" rx="12" ry="7.5" fill="#ff9aa2" opacity=".55"/>
+      <circle cx="92" cy="84" r="2.6" fill="#2f7a17"/><circle cx="108" cy="84" r="2.6" fill="#2f7a17"/>
+      <path d="M50 102 Q100 154 150 102 Q100 114 50 102Z" fill="#0f3a17"/>
+      <path d="M82 130 Q100 146 118 130 Q100 121 82 130Z" fill="#ff7d8b"/>
+    </symbol>
+
+    <symbol id="frog" viewBox="0 0 300 300">
+      <ellipse cx="92" cy="284" rx="44" ry="15" fill="#4fb81f" stroke="#2c8a16" stroke-width="3"/>
+      <ellipse cx="208" cy="284" rx="44" ry="15" fill="#4fb81f" stroke="#2c8a16" stroke-width="3"/>
+      <ellipse cx="150" cy="218" rx="82" ry="72" fill="url(#gFrog)" stroke="#2c8a16" stroke-width="3"/>
+      <ellipse cx="150" cy="238" rx="52" ry="44" fill="#d3f78a"/>
+      <use href="#frog-head" x="42" y="26" width="216" height="173"/>
+      <ellipse cx="86" cy="214" rx="20" ry="34" transform="rotate(24 86 214)" fill="url(#gFrog)" stroke="#2c8a16" stroke-width="3"/>
+      <ellipse cx="214" cy="214" rx="20" ry="34" transform="rotate(-24 214 214)" fill="url(#gFrog)" stroke="#2c8a16" stroke-width="3"/>
+      <g class="pulse">
+        <circle cx="150" cy="222" r="47" fill="url(#gOrb)" stroke="#c9ffd9" stroke-opacity=".7" stroke-width="2.5"/>
+        <path d="M122 238 L138 220 L150 228 L166 204 L180 210" fill="none" stroke="#f1ffd0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M172 200 L184 208 L172 216" fill="none" stroke="#f1ffd0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" transform="translate(-2 -2)"/>
+        <ellipse cx="132" cy="200" rx="10" ry="6" fill="#fff" opacity=".5" transform="rotate(-30 132 200)"/>
+      </g>
+      <circle cx="108" cy="238" r="16" fill="#7fdc35" stroke="#2c8a16" stroke-width="3"/>
+      <circle cx="192" cy="238" r="16" fill="#7fdc35" stroke="#2c8a16" stroke-width="3"/>
+      <path d="M40 150 l4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 10 -4z" fill="#d9ff86"/>
+      <path d="M262 176 l3 8 8 3 -8 3 -3 8 -3 -8 -8 -3 8 -3z" fill="#d9ff86"/>
+      <path d="M240 130 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" fill="#d9ff86"/>
+    </symbol>
+  </defs>
+</svg>
+
+<a class="skip" href="#app">Skip to content</a>
+<div class="strip" id="strip" role="status">Preview build: the markets you see are sample data. Contracts aren't deployed yet, so no transactions can be sent.</div>
+
+<header class="site">
+  <div class="wrap bar">
+    <a class="brand" href="#/" aria-label="Frogdiction home"><svg class="logo" viewBox="0 0 200 160" aria-hidden="true"><use href="#frog-head"/></svg><span>FROG<b>DICTION</b></span></a>
+    <nav class="nav" id="nav" aria-label="Main">
+      <a href="#/markets" data-r="markets">Markets</a>
+      <a href="#/markets?s=live" data-r="live">Live</a>
+      <a href="#/how-it-works" data-r="how-it-works">How It Works</a>
+      <a href="#/leaderboard" data-r="leaderboard">Leaderboard</a>
+      <a href="#/stats" data-r="stats">Stats</a>
+      <a href="#/dashboard" data-r="dashboard">Dashboard</a>
+      <button class="navlink only-m" id="themeLink" type="button">Switch light or dark theme</button>
+      <span class="navnet only-m">Network: Robinhood Chain Testnet</span>
+    </nav>
+    <div class="tools">
+      <div class="netsel">
+        <button class="netbtn" id="netBtn" aria-haspopup="true" aria-expanded="false"><span class="dot" id="netDot"></span><span id="netLbl"><span class="long">Robinhood Chain</span> Testnet</span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="netmenu" id="netMenu" hidden>
+          <button data-net="testnet"><b>Robinhood Chain Testnet</b><small>Chain ID 46630. Play-money markets with TEST USDC.</small></button>
+          <button data-net="mainnet" disabled><b>Robinhood Chain Mainnet</b><small>Chain ID 4663. Off: real-money markets are disabled.</small></button>
+        </div>
+      </div>
+      <button class="btn btn-lime btn-sm wbtn" id="walletBtn">Connect Wallet</button>
+      <button class="icon-btn" id="themeBtn" aria-label="Switch light or dark theme"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/></svg></button>
+      <button class="icon-btn burger" id="burger" aria-label="Open menu" aria-expanded="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+
+<main id="app" tabindex="-1"></main>
+
+<footer class="site">
+  <div class="wrap foot">
+    <div>
+      <a class="brand" href="#/" aria-label="Frogdiction home"><svg class="logo" viewBox="0 0 200 160" aria-hidden="true"><use href="#frog-head"/></svg><span>FROG<b>DICTION</b></span></a>
+      <p class="muted" style="margin-top:10px;font-size:14px">Where frogs predict the market.</p>
+      <div class="social">
+        <a href="#/" aria-label="X (not linked yet)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 4l14 16M19 4L5 20"/></svg></a>
+        <a href="#/" aria-label="Discord (not linked yet)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg></a>
+        <a href="#/" aria-label="Telegram (not linked yet)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M21 4L3 11l6 2 2 6z"/></svg></a>
+      </div>
+    </div>
+    <div><h4>Quick links</h4><a href="#/markets">Markets</a><a href="#/leaderboard">Leaderboard</a><a href="#/stats">Stats</a><a href="#/how-it-works">How it works</a></div>
+    <div><h4>Resources</h4><a href="#/how-it-works">Rules and risks</a><a href="#/dashboard">Dashboard</a><a href="https://docs.robinhood.com/chain/" target="_blank" rel="noopener noreferrer">Robinhood Chain docs</a></div>
+    <div><h4>Network</h4><a href="https://explorer.testnet.chain.robinhood.com" target="_blank" rel="noopener noreferrer">Testnet explorer</a><a href="https://faucet.quicknode.com/robinhood/testnet" target="_blank" rel="noopener noreferrer">Testnet faucet (third party)</a></div>
+    <div class="fine">
+      <span>© <span id="yr"></span> Frogdiction. Testnet preview.</span>
+      <span>Frogdiction is independent and is not affiliated with, endorsed by, or sponsored by Robinhood. Predictions carry risk. TEST USDC has no real value.</span>
+    </div>
+  </div>
+</footer>
+
+<dialog id="dlg" aria-labelledby="dlgTitle"><div class="dlg" id="dlgBody"></div></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+/* ═════════ Config ═════════
+   Network parameters match docs.robinhood.com/chain/connecting. The faucet is a third-party service
+   (Robinhood does not document a first-party faucet). Only `market` is required: the app reads the settlement
+   token, registry, oracle, fee and limits from it. Re-check both addresses against
+   broadcast/Deploy.s.sol/46630/run-latest.json in your contracts folder. */
+const CONFIG = {
+  network: 'testnet',
+  enableRealMarkets: false,
+  feeBps: 200, minBet: 1, maxBet: 500,
+  chains: {
+    testnet: { id: 46630, hex: '0xb626', name: 'Robinhood Chain Testnet', rpc: 'https://rpc.testnet.chain.robinhood.com', explorer: 'https://explorer.testnet.chain.robinhood.com', faucet: 'https://faucet.quicknode.com/robinhood/testnet' },
+    mainnet: { id: 4663, hex: '0x1237', name: 'Robinhood Chain', rpc: 'https://rpc.mainnet.chain.robinhood.com', explorer: 'https://robinhoodchain.blockscout.com' }
+  },
+  contracts: { factory: '0x53Ce7e42428D576A1C2Def99A5B20DFab3436476', market: '0x53F0b131449402A65a8fBd8B1f73A55e8ed97049', oracle: null, usdc: null, registry: null }
+};
+/* PREVIEW = sample data and no transactions. Becomes false once the chain has been read successfully. */
+let PREVIEW = true;
+let FEE = CONFIG.feeBps / 10000;
+
+/* ═════════ Helpers ═════════ */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const usd = n => (n == null || isNaN(n)) ? '—' : '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
+const px = n => (n == null || isNaN(n)) ? '—' : '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const p2 = n => String(n).padStart(2, '0');
+const hms = s => { s = Math.max(0, Math.floor(s)); return `${p2(Math.floor(s / 3600))}:${p2(Math.floor(s % 3600 / 60))}:${p2(s % 60)}`; };
+const short = a => a.slice(0, 6) + '…' + a.slice(-4);
+const mult = (m, side) => { if (m.state === 'settled' || m.state === 'cancelled') return null; const s = side === 'UP' ? m.up : m.down; return s > 0 ? Math.floor((m.up + m.down) * (1 - FEE) / s * 100) / 100 : null; };
+const multTxt = x => x === null ? '—' : x.toFixed(2) + 'x';
+const payoutFor = (m, side, amt) => { const s = (side === 'UP' ? m.up : m.down) + amt; return amt / s * (m.up + m.down + amt) * (1 - FEE); };
+const toast = (() => { let t; return msg => { const el = $('#toast'); el.textContent = msg; el.classList.add('on'); clearTimeout(t); t = setTimeout(() => el.classList.remove('on'), 3800); }; })();
+
+const ICONS = {
+  up: '<path d="M7 17L17 7M9 7h8v8"/>', down: '<path d="M7 7l10 10M17 9v8H9"/>',
+  play: '<path d="M8 5v14l11-7z" fill="currentColor"/>',
+  shield: '<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  bolt: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>', lock: '<path d="M6 11h12v9H6zM8 11V8a4 4 0 0 1 8 0v3"/>',
+  drop: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>', coin: '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5h4a1.5 1.5 0 0 1 0 3h-3"/>',
+  chart: '<path d="M4 19V5M4 19h16M8 15l4-4 3 3 5-6"/>', right: '<path d="M5 12h14M13 6l6 6-6 6"/>', ext: '<path d="M14 4h6v6M20 4l-9 9M18 14v5H5V6h5"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>'
+};
+const ico = (n, cls = 'ico') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+
+/* ═════════ Sample data (PREVIEW only) ═════════ */
+function hash(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function walk(sym, salt, n, end, chgPct, vol) {
+  const r = rng(hash(sym + salt)); const drift = (chgPct / 100) / n; let p = 100; const out = [p];
+  for (let i = 1; i < n; i++) { p *= 1 + drift + (r() - .5) * vol * 2; out.push(p); }
+  const k = end / out[n - 1]; return out.map(v => v * k);
+}
+function candlesFrom(series, per) {
+  const r = rng(hash('c' + series.length + series[0])); const out = [];
+  for (let i = 0; i + per <= series.length; i += per) {
+    const seg = series.slice(i, i + per); const o = seg[0], c = seg[seg.length - 1];
+    out.push({ o, c, h: Math.max(...seg) * (1 + r() * .0012), l: Math.min(...seg) * (1 - r() * .0012) });
+  }
+  return out;
+}
+const N_PTS = 112, START_IDX = 68, LOCK_IDX = 98;
+const HUES = { NVDA: 100, AAPL: 210, TSLA: 355, MSFT: 195, AMZN: 32, GOOGL: 150, META: 225, AMD: 15 };
+const NAMES = { NVDA: 'NVIDIA Corporation', AAPL: 'Apple Inc.', TSLA: 'Tesla, Inc.', MSFT: 'Microsoft Corporation', AMZN: 'Amazon.com, Inc.', GOOGL: 'Alphabet Inc.', META: 'Meta Platforms, Inc.', AMD: 'Advanced Micro Devices' };
+const T0 = Date.now();
+const SAMPLE_RESULTS = { 9: 'DOWN', 10: 'UP', 11: 'DRAW', 12: 'DOWN' };
+const seeds = [
+  ['NVDA', 178.42, .70, 5, 1970, 1140, 'live', 201, 1284],
+  ['AAPL', 245.12, .52, 5, 2430, 1760, 'live', 312, 1284],
+  ['TSLA', 248.76, -1.21, 15, 1760, 2010, 'live', 312, 431],
+  ['MSFT', 412.30, .38, 60, 1680, 1060, 'live', 2568, 72],
+  ['AMZN', 231.05, -.34, 15, 940, 1210, 'live', 640, 431],
+  ['GOOGL', 198.66, .91, 5, 720, 505, 'live', 118, 1284],
+  ['META', 655.20, .22, 60, 0, 0, 'upcoming', 1500, 72],
+  ['AMD', 164.83, -.58, 15, 0, 0, 'upcoming', 900, 431],
+  ['NVDA', 177.97, -.18, 5, 1320, 1580, 'settled', 0, 1283],
+  ['TSLA', 251.80, .64, 15, 2140, 1390, 'settled', 0, 430],
+  ['AAPL', 244.60, .11, 5, 1850, 1930, 'settled', 0, 1283],
+  ['MSFT', 411.05, -.09, 60, 990, 1240, 'settled', 0, 71]
+];
+const MARKETS = seeds.map(([sym, price, chg, dur, up, down, kind, lockIn, round], i) => {
+  const series = walk(sym, i, N_PTS, price, chg * 2.2, .0016);
+  if (kind === 'settled') { /* shape the tail so sample results vary: UP, DOWN and a DRAW */
+    const want = SAMPLE_RESULTS[i + 1], last = N_PTS - 1, lock = series[LOCK_IDX];
+    const tf = want === 'DRAW' ? lock : lock * (want === 'UP' ? 1.004 : .996), shift = tf - series[last];
+    for (let k = LOCK_IDX + 1; k <= last; k++) series[k] += shift * (k - LOCK_IDX) / (last - LOCK_IDX);
+    if (want === 'DRAW') series[last] = lock;
+    price = series[last];
+  }
+  const m = { id: i + 1, sym, name: NAMES[sym], hue: HUES[sym], price, chg, dur, up, down, round, series, candles: candlesFrom(series, 4), startPrice: series[START_IDX], lockPrice: null, settlePrice: null, outcome: null };
+  if (kind === 'live') { m.state = 'live'; m.lockAt = T0 + lockIn * 1000; }
+  if (kind === 'upcoming') { m.state = 'upcoming'; m.startAt = T0 + lockIn * 1000; m.lockAt = m.startAt + dur * 60000; }
+  if (kind === 'settled') {
+    m.state = 'settled'; m.lockPrice = series[LOCK_IDX]; m.settlePrice = series[N_PTS - 1];
+    m.outcome = m.settlePrice > m.lockPrice ? 'UP' : m.settlePrice < m.lockPrice ? 'DOWN' : 'DRAW';
+  }
+  return m;
+});
+const byId = id => MARKETS.find(m => m.id === Number(id));
+
+/* Data layer seam: replace with indexer/API + contract reads once deployed. */
+const DataSource = { markets: () => MARKETS, market: byId };
+
+/* ═════════ Charts ═════════ */
+function candleSVG(cs, h = 66, w = 240) {
+  const lo = Math.min(...cs.map(c => c.l)), hi = Math.max(...cs.map(c => c.h)), rg = hi - lo || 1;
+  const y = v => 4 + (h - 8) * (1 - (v - lo) / rg), step = w / cs.length, bw = Math.max(2, step * .56);
+  return `<svg class="mini" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">${cs.map((c, i) => {
+    const x = i * step + step / 2, col = c.c >= c.o ? 'var(--up)' : 'var(--down)';
+    const top = y(Math.max(c.o, c.c)), bot = y(Math.min(c.o, c.c));
+    return `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${y(c.h).toFixed(1)}" y2="${y(c.l).toFixed(1)}" stroke="${col}" stroke-width="1.2"/><rect x="${(x - bw / 2).toFixed(1)}" y="${top.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1.5, bot - top).toFixed(1)}" rx="1" fill="${col}"/>`;
+  }).join('')}</svg>`;
+}
+function lineSVG(cs, up, h = 66, w = 240) {
+  const v = cs.map(c => c.c), lo = Math.min(...v), hi = Math.max(...v), rg = hi - lo || 1;
+  const pts = v.map((p, i) => [i * w / (v.length - 1), 4 + (h - 8) * (1 - (p - lo) / rg)]);
+  const d = 'M' + pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join('L');
+  return `<svg class="mini" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true" style="color:${up ? 'var(--up)' : 'var(--down)'}"><path d="${d}L${w},${h}L0,${h}Z" fill="currentColor" opacity=".13"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function bigChart(m) {
+  const s = m.series, W = 760, H = 300, pl = 8, pr = 74, pt = 22, pb = 22;
+  const lo = Math.min(...s) * .9985, hi = Math.max(...s) * 1.0015;
+  const x = i => pl + (W - pl - pr) * i / (s.length - 1), y = v => pt + (H - pt - pb) * (1 - (v - lo) / (hi - lo));
+  const d = 'M' + s.map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1)).join('L');
+  const cur = s[s.length - 1], up = cur >= m.startPrice, col = up ? 'var(--up)' : 'var(--down)';
+  const locked = m.state === 'locked' || m.state === 'settled';
+  const refV = locked ? m.lockPrice : m.startPrice, refLbl = locked ? 'Lock' : 'Start';
+  const marks = [[START_IDX, 'Start']]; if (locked) marks.push([LOCK_IDX, 'Lock']); if (m.state === 'settled') marks.push([s.length - 1, 'Settle']);
+  const grid = [0, .5, 1].map(f => { const v = hi - (hi - lo) * f; return `<line class="g" x1="${pl}" x2="${W - pr}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/><text x="${W - pr + 8}" y="${(y(v) + 4).toFixed(1)}">${px(v)}</text>`; }).join('');
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${m.sym} price chart with ${refLbl.toLowerCase()} price ${px(refV)} and latest price ${px(cur)}">
+    ${grid}
+    <path d="${d}L${x(s.length - 1).toFixed(1)},${H - pb}L${x(0).toFixed(1)},${H - pb}Z" fill="${col}" opacity=".1"/>
+    <path d="${d}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${marks.map(([i, l]) => `<line class="mk" x1="${x(i).toFixed(1)}" x2="${x(i).toFixed(1)}" y1="${pt - 6}" y2="${H - pb}"/><text x="${x(i).toFixed(1)}" y="${pt - 9}" text-anchor="middle">${l}</text>`).join('')}
+    <line class="ref" x1="${pl}" x2="${W - pr}" y1="${y(refV).toFixed(1)}" y2="${y(refV).toFixed(1)}"/>
+    <rect x="${W - pr + 2}" y="${(y(cur) - 10).toFixed(1)}" width="70" height="20" rx="6" fill="${col}"/>
+    <text x="${W - pr + 37}" y="${(y(cur) + 4).toFixed(1)}" text-anchor="middle" style="fill:#06110b;font-weight:700">${px(cur)}</text>
+  </svg>`;
+}
+
+/* ═════════ Market card ═════════ */
+function cdLabel(m) {
+  if (m.state === 'upcoming') return 'Opens in';
+  if (m.state === 'live') return 'Locks in';
+  if (m.state === 'locked') return m.chain ? (m.status === 2 ? 'Ends in' : 'Locking') : 'Locked';
+  if (m.state === 'cancelled') return 'Cancelled';
+  return 'Settled';
+}
+function cdText(m) {
+  if (m.state === 'upcoming') return hms((m.startAt - Date.now()) / 1000);
+  if (m.state === 'live') return hms((m.lockAt - Date.now()) / 1000);
+  if (m.state === 'locked') {
+    if (!m.chain) return 'Settling…';
+    if (m.status === 2) return m.endAt > Date.now() ? hms((m.endAt - Date.now()) / 1000) : 'Settling…';
+    return 'Awaiting lock';
+  }
+  if (m.state === 'cancelled') return 'Refunds open';
+  return m.refund ? 'Refunded' : (m.outcome || '—');
+}
+const durTxt = m => m.dur === 60 ? '1H' : m.dur + ' MIN';
+const chgHtml = m => m.chg == null ? '' : `<span class="chg ${m.chg >= 0 ? 'up' : 'down'}">${m.chg >= 0 ? '▲' : '▼'} ${Math.abs(m.chg).toFixed(2)}%</span>`;
+const staleHtml = m => m.priceStale ? '<span class="tag lock" style="margin-left:8px">price stale</span>' : '';
+const noChart = () => '<div class="mini nochart">Price history needs the indexer</div>';
+function stateTag(m) {
+  if (m.state === 'locked') return '<span class="tag lock">Locked</span>';
+  if (m.state === 'upcoming') return '<span class="tag">Upcoming</span>';
+  if (m.state === 'cancelled') return '<span class="tag lock">Cancelled</span>';
+  if (m.state === 'settled') return `<span class="tag done">${m.refund ? 'Refunded' : 'Settled ' + m.outcome}</span>`;
+  return '';
+}
+function mcard(m, hi) {
+  const tot = m.up + m.down, upP = tot ? Math.round(m.up / tot * 100) : null;
+  const openable = m.state === 'live';
+  const tag = stateTag(m);
+  const chart = m.candles ? (hi ? candleSVG(m.candles) : lineSVG(m.candles, m.chg >= 0)) : noChart();
+  return `<article class="mcard${hi ? ' hi' : ''}" data-open="${m.id}" tabindex="0" aria-label="${m.sym} ${m.dur === 60 ? '1 hour' : m.dur + ' minute'} market">
+    <div class="mc-head"><div class="tile" style="--h:${m.hue}">${m.sym.slice(0, 4)}</div><div><div class="tick">${m.sym}</div><div class="cname">${m.name}</div></div><span class="dur">${durTxt(m)}</span></div>
+    ${tag ? `<div>${tag}</div>` : ''}
+    <div><span class="price">${px(m.price)}</span>${chgHtml(m)}${staleHtml(m)}</div>
+    ${chart}
+    <div class="pools">
+      <div class="pool up"><small>UP POOL</small><b>${upP === null ? '—' : upP + '%'}</b><span>${usd(m.up)}</span></div>
+      <div class="pool down"><small>DOWN POOL</small><b>${upP === null ? '—' : (100 - upP) + '%'}</b><span>${usd(m.down)}</span></div>
+    </div>
+    <div class="meta2">
+      <div><small>Total pool</small><b>${usd(tot)}</b></div>
+      <div><small>${cdLabel(m)}</small><b data-cd="${m.id}">${cdText(m)}</b></div>
+    </div>
+    <div class="btnrow">
+      <button class="rbtn up" data-predict="${m.id}:UP" aria-label="Predict UP, estimated payout ${multTxt(mult(m, 'UP'))}" ${openable ? '' : 'disabled'}><span class="l">${ico('up')} UP</span><small>${multTxt(mult(m, 'UP'))}</small></button>
+      <button class="rbtn down" data-predict="${m.id}:DOWN" aria-label="Predict DOWN, estimated payout ${multTxt(mult(m, 'DOWN'))}" ${openable ? '' : 'disabled'}><span class="l">${ico('down')} DOWN</span><small>${multTxt(mult(m, 'DOWN'))}</small></button>
+    </div>
+  </article>`;
+}
+
+/* ═════════ Art ═════════ */
+function heroScene() {
+  let candles = ''; const r = rng(7); let p = 470;
+  for (let i = 0; i < 9; i++) { const x = 1270 + i * 19, o = p, c = p - (r() * 34 - 8); p = c; const up = c < o; const col = up ? '#8be83e' : '#f2555f'; const t = Math.min(o, c), b = Math.max(o, c); candles += `<line x1="${x}" x2="${x}" y1="${t - 12 - r() * 14}" y2="${b + 10 + r() * 12}" stroke="${col}" stroke-width="2"/><rect x="${x - 5}" y="${t}" width="10" height="${Math.max(6, b - t)}" rx="2" fill="${col}"/>`; }
+  let flies = ''; const f = rng(21); for (let i = 0; i < 16; i++) flies += `<circle cx="${(f() * 1440) | 0}" cy="${(120 + f() * 420) | 0}" r="${(1 + f() * 2).toFixed(1)}" fill="#d9ff86" opacity="${(.3 + f() * .5).toFixed(2)}"/>`;
+  return `<svg class="hero-bg" viewBox="0 0 1440 640" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>
+    <linearGradient id="hSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#03110a"/><stop offset=".6" stop-color="#0a2a17"/><stop offset="1" stop-color="#0d3a1c"/></linearGradient>
+    <radialGradient id="hMoon"><stop offset="0" stop-color="#c8ffd0" stop-opacity=".85"/><stop offset=".5" stop-color="#63d68a" stop-opacity=".3"/><stop offset="1" stop-color="#63d68a" stop-opacity="0"/></radialGradient>
+    <linearGradient id="hFall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9ffd6" stop-opacity="0"/><stop offset=".25" stop-color="#b9ffd6" stop-opacity=".45"/><stop offset="1" stop-color="#b9ffd6" stop-opacity=".05"/></linearGradient></defs>
+    <rect width="1440" height="640" fill="url(#hSky)"/>
+    <circle cx="1130" cy="150" r="170" fill="url(#hMoon)"/><circle cx="1130" cy="150" r="60" fill="#cdeed3" opacity=".8"/><circle cx="1112" cy="136" r="9" fill="#a9d6b3" opacity=".7"/><circle cx="1148" cy="170" r="6" fill="#a9d6b3" opacity=".7"/>
+    <path d="M0 400 Q200 300 420 380 T840 360 T1180 400 T1440 350 V640 H0Z" fill="#0a2716"/>
+    <rect x="890" y="250" width="36" height="240" fill="url(#hFall)"/><rect x="900" y="250" width="12" height="240" fill="#e6fff0" opacity=".12"/>
+    <path d="M0 500 Q200 440 420 490 T860 480 T1200 500 T1440 470 V640 H0Z" fill="#0c3218"/>
+    ${candles}${flies}
+    <path d="M0 640 C30 560 90 520 170 540 C120 556 96 596 90 640Z" fill="#0f4a1f"/><path d="M40 640 C60 590 120 570 190 590 C150 600 130 620 124 640Z" fill="#136a2a"/>
+    <path d="M1440 640 C1410 570 1350 540 1290 560 C1330 572 1352 604 1358 640Z" fill="#0f4a1f"/>
+    <ellipse cx="330" cy="596" rx="70" ry="14" fill="#1f7a2a"/><ellipse cx="420" cy="618" rx="48" ry="10" fill="#186a25"/></svg>`;
+}
+function heroFrog() {
+  return `<svg viewBox="0 0 340 340" role="img" aria-label="Cartoon frog holding a glowing crystal ball with a rising chart"><path d="M14 334 Q26 288 92 288 H248 Q314 288 326 334Z" fill="#2c5d3c"/><path d="M60 292 H280 Q300 296 306 306 Q170 296 34 306 Q40 296 60 292Z" fill="#3d7a52" opacity=".7"/><g class="bob"><use href="#frog" x="20" y="-6" width="300" height="300"/></g></svg>`;
+}
+function citySkyline() {
+  let b = ''; const r = rng(5); let x = 0;
+  while (x < 520) { const w = 22 + r() * 34, h = 60 + r() * 150; b += `<rect x="${x.toFixed(0)}" y="${(330 - h).toFixed(0)}" width="${w.toFixed(0)}" height="${h.toFixed(0)}" fill="#0b2b1b"/>`; if (r() > .5) b += `<rect x="${(x + 6).toFixed(0)}" y="${(340 - h).toFixed(0)}" width="4" height="4" fill="#d9ff86" opacity=".55"/>`; x += w + 3; }
+  return b;
+}
+function whyScene() {
+  return `<div class="scene dark-scope"><svg viewBox="0 0 400 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="wSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#04110a"/><stop offset="1" stop-color="#0d3a1c"/></linearGradient></defs>
+    <rect width="400" height="320" fill="url(#wSky)"/><circle cx="90" cy="70" r="34" fill="#cdeed3" opacity=".75"/>
+    <g transform="translate(-60 0)">${citySkyline()}</g>
+    <path d="M0 320 V250 Q60 226 130 244 Q180 200 260 236 Q340 214 400 246 V320Z" fill="#0f4a1f"/>
+    <path d="M110 320 Q130 262 190 262 H300 Q350 268 360 320Z" fill="#2c5d3c"/>
+    <g transform="translate(150 118) scale(.62)"><rect x="118" y="146" width="76" height="90" rx="20" fill="#0d2a19" stroke="#2c8a16" stroke-width="4" transform="rotate(-8 150 190)"/><use href="#frog" width="300" height="300"/></g></svg>
+    <span class="script">More markets.<br>Bigger possibilities.</span></div>`;
+}
+function rocketFrog() {
+  return `<svg viewBox="0 0 190 150" aria-hidden="true"><g transform="rotate(-24 100 80)">
+    <path d="M100 136 q-14 20 0 34 q14 -14 0 -34z" fill="url(#gFlame)" transform="translate(0 -18)"/>
+    <path d="M78 60 q22 -50 44 0 v56 h-44z" fill="#e8f2ec" stroke="#8fb09a" stroke-width="2"/>
+    <path d="M78 116 l-16 18 h16z M122 116 l16 18 h-16z" fill="#f2555f"/>
+    <rect x="78" y="104" width="44" height="12" fill="#a4f23d"/></g>
+    <use href="#frog-head" x="52" y="10" width="92" height="74"/></svg>`;
+}
+const stepArt = {
+  1: `<svg viewBox="0 0 150 112" aria-hidden="true"><use href="#frog-head" x="2" y="26" width="86" height="69"/><rect x="66" y="10" width="78" height="60" rx="10" fill="#0c2015" stroke="#2c8a16" stroke-width="2"/><text x="76" y="30" fill="#eef8ea" font-family="Fredoka,sans-serif" font-weight="700" font-size="13">NVDA</text><path d="M74 58 L90 46 L102 52 L118 36 L134 42" fill="none" stroke="#a4f23d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  2: `<svg viewBox="0 0 150 112" aria-hidden="true"><use href="#frog-head" x="0" y="26" width="86" height="69"/><circle cx="106" cy="38" r="20" fill="#3d8a1c" stroke="#a4f23d" stroke-width="2"/><path d="M106 46 V30 M98 37 l8 -8 8 8" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="118" cy="78" r="20" fill="#8a2a30" stroke="#f2555f" stroke-width="2"/><path d="M118 70 V86 M110 79 l8 8 8 -8" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  3: `<svg viewBox="0 0 150 112" aria-hidden="true"><use href="#frog-head" x="30" y="18" width="90" height="72"/><circle cx="75" cy="82" r="22" fill="url(#gOrb)" stroke="#c9ffd9" stroke-opacity=".7" stroke-width="2"/><path d="M62 90 L72 80 L79 84 L88 72" fill="none" stroke="#f1ffd0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 30 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3z M128 24 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" fill="#d9ff86"/></svg>`
+};
+
+/* ═════════ Views ═════════ */
+function homeView() {
+  const live = DataSource.markets().filter(m => m.state === 'live').slice(0, 4);
+  return `
+  <section class="hero dark-scope">${heroScene()}
+    <div class="wrap hero-grid">
+      <div>
+        <span class="badge-test">TESTNET</span>
+        <h1>Predict the <span>Market.</span></h1>
+        <p class="lede">Onchain prediction markets built for Robinhood Chain Stock Tokens.</p>
+        <div class="pills"><span class="pill">${ico('coin')} Stock Tokens</span><span class="pill">${ico('link')} Oracle-powered</span><span class="pill">${ico('chart')} Robinhood Chain</span></div>
+        <div class="cta-row"><a class="btn btn-lime btn-lg" href="#/markets">Explore Markets ${ico('up')}</a><a class="btn btn-ghost btn-lg" href="#/how-it-works">${ico('play')} How It Works</a></div>
+      </div>
+      <div class="hero-art">${heroFrog()}<span class="script">Same market.<br>Bigger leaps.</span></div>
+    </div>
+  </section>
+  <section class="sec wrap" aria-labelledby="tm">
+    <div class="sec-head"><div><span class="eyebrow"><span class="dot"></span>LIVE MARKETS</span><h2 class="t" id="tm">Top Markets</h2><p class="sub">Pick a Stock Token, choose UP or DOWN, and see the pool split before you commit.${PREVIEW ? ' Sample data in this preview.' : ''}</p></div><a class="link-more" href="#/markets">View all markets ${ico('up')}</a></div>
+    ${live.length ? `<div class="grid-markets snap">${live.map((m, i) => mcard(m, i === 0)).join('')}</div>` : `<div class="empty"><svg viewBox="0 0 200 160" aria-hidden="true"><use href="#frog-head"/></svg><b>No market is open right now</b>New rounds are created by an admin or the keeper. Check the <a href="#/markets" style="color:var(--limet)">markets list</a> for upcoming and settled rounds.</div>`}
+  </section>
+  <section class="sec wrap" aria-labelledby="hw">
+    <div class="sec-head"><div><span class="eyebrow"><span class="dot"></span>HOW IT WORKS</span><h2 class="t" id="hw">Simple. Fast. Onchain.</h2><p class="sub">Three steps from pick to payout.</p></div></div>
+    <div class="steps">
+      <div class="step">${stepArt[1]}<div><div class="sn">1</div><h3>Choose an asset</h3><p>Pick from supported Robinhood Chain Stock Tokens.</p></div></div><span class="arrow">${ico('right')}</span>
+      <div class="step">${stepArt[2]}<div><div class="sn">2</div><h3>Predict UP or DOWN</h3><p>Enter your amount and confirm your position.</p></div></div><span class="arrow">${ico('right')}</span>
+      <div class="step">${stepArt[3]}<div><div class="sn">3</div><h3>Claim your result</h3><p>When the market settles, winners share the pool.</p></div></div>
+    </div>
+  </section>
+  <section class="sec wrap" aria-labelledby="wy">
+    <div class="sec-head"><div><span class="eyebrow"><span class="dot"></span>WHY FROGDICTION</span><h2 class="t" id="wy">Built for the next generation of <em>onchain markets.</em></h2></div></div>
+    <div class="why">
+      <div class="why-cards">
+        <div class="feat"><div class="fi">${ico('shield')}</div><h3>Transparent settlement</h3><p>Results are decided by smart contracts using oracle price data. The keeper can trigger settlement but can't pick a winner.</p></div>
+        <div class="feat"><div class="fi">${ico('link')}</div><h3>Oracle-powered prices</h3><p>Each market reads an approved price source, with checks for stale and invalid prices.</p></div>
+        <div class="feat"><div class="fi">${ico('bolt')}</div><h3>Fast transactions</h3><p>Robinhood Chain is an EVM-compatible Layer 2, so predictions confirm quickly with low fees.</p></div>
+        <div class="feat"><div class="fi">${ico('lock')}</div><h3>Verifiable onchain</h3><p>Contract addresses, oracles and every transaction link to the block explorer.</p></div>
+      </div>
+      ${whyScene()}
+    </div>
+  </section>
+  <section class="wrap" id="live-stats" aria-labelledby="cta-t">
+    <div class="cta dark-scope" style="color:var(--text)">${rocketFrog()}
+      <div><h2 id="cta-t">Ready to make your prediction?</h2><p>Pick a market, choose a side, and watch it settle onchain.</p>
+        <div class="cta-row"><a class="btn btn-lime" href="#/markets">Explore Markets ${ico('up')}</a>${faucetBtns()}</div></div>
+      <div class="stats"><h4><span class="dot"></span>LIVE STATS</h4><dl>
+        <div><dt>Total Markets</dt><dd>—</dd></div><div><dt>Total Volume</dt><dd>—</dd></div>
+        <div><dt>Active Markets</dt><dd>—</dd></div><div><dt>Total Users</dt><dd>—</dd></div>
+        <div><dt>Settled Markets</dt><dd>—</dd></div><div><dt>Supported Assets</dt><dd>—</dd></div></dl>
+        <p class="note">Real numbers only. These fill in once contracts are deployed and the indexer is running.</p></div>
+    </div>
+  </section>`;
+}
+
+function marketsView(q) {
+  const f = { s: q.get('s') || 'all', a: q.get('a') || 'all', d: q.get('d') || 'all' };
+  const list = DataSource.markets().filter(m => {
+    const st = f.s === 'all' || (f.s === 'live' && (m.state === 'live' || m.state === 'locked')) || (f.s === 'upcoming' && m.state === 'upcoming') || (f.s === 'settled' && (m.state === 'settled' || m.state === 'cancelled'));
+    return st && (f.a === 'all' || m.sym === f.a) && (f.d === 'all' || String(m.dur) === f.d);
+  });
+  const assets = [...new Set(MARKETS.map(m => m.sym))];
+  const grp = (key, opts, label) => `<div class="fgroup" role="group" aria-label="${label}">${opts.map(([v, l]) => `<button class="chip" data-f="${key}:${v}" aria-pressed="${f[key] === v}">${l}</button>`).join('')}</div>`;
+  return `<div class="wrap page"><h1>Markets</h1><p class="sub">${PREVIEW ? 'Sample markets for the preview build.' : 'Every market reads from the chain.'}</p>
+    <div class="filters">${grp('s', [['all', 'All'], ['live', 'Live'], ['upcoming', 'Upcoming'], ['settled', 'Settled']], 'Status')}${grp('a', [['all', 'All assets'], ...assets.map(a => [a, a])], 'Asset')}${grp('d', [['all', 'Any length'], ['5', '5M'], ['15', '15M'], ['60', '1H']], 'Duration')}</div>
+    ${list.length ? `<div class="grid-markets">${list.map(m => mcard(m, false)).join('')}</div>` : `<div class="empty"><svg viewBox="0 0 200 160" aria-hidden="true"><use href="#frog-head"/></svg><b>No markets match these filters</b>Try a different status, asset or length.</div>`}</div>`;
+}
+
+function positionPanel(m) {
+  const p = POS[m.id];
+  let body;
+  if (!state.account) body = 'Connect a wallet to see your position.';
+  else if (PREVIEW || !p || !p.amount) body = 'No position in this round.';
+  else {
+    const side = `<b class="${p.isUp ? 'up-c' : 'down-c'}">${p.isUp ? 'UP' : 'DOWN'}</b>`;
+    body = `${side} with ${usd(p.amount)} TEST USDC.` + (p.claimable > 0 ? `<div style="margin-top:10px"><button class="btn btn-lime btn-sm" data-claim="${m.id}">Claim ${px(p.claimable)}</button></div>` : p.claimed ? ' Claimed.' : m.state === 'settled' ? ' Nothing to claim for this side.' : '');
+  }
+  return `<div class="panel"><b>Your position</b><p class="muted" style="font-size:14px;margin-top:4px">${body}</p></div>`;
+}
+function marketView(id) {
+  const m = DataSource.market(id);
+  if (!m) return `<div class="wrap page"><a class="crumb" href="#/markets">← All markets</a><div class="empty"><svg viewBox="0 0 200 160" aria-hidden="true"><use href="#frog-head"/></svg><b>Market not found</b>It may have been removed. Browse the list to find another.</div></div>`;
+  const tot = m.up + m.down, upP = tot ? m.up / tot * 100 : 50, open = m.state === 'live';
+  const lockShow = m.lockPrice ? px(m.lockPrice) : 'Set at lock';
+  const result = m.state === 'settled' ? `<div class="result ${m.refund ? 'DRAW' : m.outcome}"><b>${m.refund ? 'Refunded' : 'Result: ' + m.outcome}</b><p class="muted" style="font-size:14px;margin-top:2px">${px(m.settlePrice)} at settlement against ${px(m.lockPrice)} at lock${m.outcome === 'UP' || m.outcome === 'DOWN' ? ': the price went ' + m.outcome : ''}.${m.outcome === 'DRAW' ? ' Prices matched, so every stake is returned.' : m.refund ? ' One side had no predictions, so every stake is returned with no fee.' : ''}</p></div>`
+    : m.state === 'cancelled' ? `<div class="result DRAW"><b>Cancelled</b><p class="muted" style="font-size:14px;margin-top:2px">This market was cancelled. Every stake can be claimed back in full.</p></div>` : '';
+  const kv = (k, v) => `<div class="rowkv"><span>${k}</span><span>${v}</span></div>`;
+  const tagCls = open ? 'live' : (m.state === 'locked' || m.state === 'cancelled') ? 'lock' : 'done';
+  const tagTxt = open ? 'Live' : m.state === 'locked' ? 'Locked' : m.state === 'upcoming' ? 'Upcoming' : m.state === 'cancelled' ? 'Cancelled' : 'Settled';
+  const chart = m.series
+    ? `${bigChart(m)}<div class="legend"><span><i></i>Price</span><span><i class="d"></i>${m.state === 'live' || m.state === 'upcoming' ? 'Start price' : 'Lock price'}</span><span>Dashed verticals mark round events</span>${PREVIEW ? '<span>Sample series, not live prices</span>' : ''}</div>`
+    : `<div class="empty" style="padding:26px 16px"><b>No price history yet</b>Charts need the indexer (a later step). The lock price and settlement price are read straight from the contract.</div>`;
+  return `<div class="wrap page"><a class="crumb" href="#/markets">← All markets</a>
+    <div class="mp"><div>
+      <div class="mp-head"><div class="tile" style="--h:${m.hue}">${m.sym.slice(0, 4)}</div><div><h1>${m.sym}</h1><div class="cname" style="font-size:14px">${m.name}</div></div>
+        <span class="dur">${durTxt(m)}</span><span class="tag ${tagCls}">${tagTxt}</span><span class="tag">TESTNET</span></div>
+      <div class="bigprice">${px(m.price)} ${chgHtml(m)}${staleHtml(m)}</div>
+      <div class="panel">${chart}
+        <div class="facts"><div class="fact"><small>Round</small><b>#${m.round}</b></div><div class="fact"><small>Start price</small><b>${px(m.startPrice)}</b></div><div class="fact"><small>Lock price</small><b>${lockShow}</b></div><div class="fact"><small>${cdLabel(m)}</small><b data-cd="${m.id}">${cdText(m)}</b></div></div></div>
+      ${result ? `<div style="margin-top:14px">${result}</div>` : ''}
+    </div>
+    <aside class="side">
+      <div class="panel"><div class="two"><div class="pool up"><small>UP POOL</small><b>${usd(m.up)}</b><span>${tot ? upP.toFixed(0) : '—'}%</span></div><div class="pool down"><small>DOWN POOL</small><b>${usd(m.down)}</b><span>${tot ? (100 - upP).toFixed(0) : '—'}%</span></div></div>
+        <div class="poolbar" aria-hidden="true"><i class="u" style="width:${tot ? upP : 50}%"></i><i class="d" style="width:${tot ? 100 - upP : 50}%"></i></div>
+        ${kv('Total pool', usd(tot))}${kv('Est. payout if UP wins', `<b class="up-c">${multTxt(mult(m, 'UP'))}</b>`)}${kv('Est. payout if DOWN wins', `<b class="down-c">${multTxt(mult(m, 'DOWN'))}</b>`)}${kv('Protocol fee', (CONFIG.feeBps / 100) + '% of the total pool')}
+        <div class="btnrow" style="margin-top:14px"><button class="rbtn up" data-predict="${m.id}:UP" ${open ? '' : 'disabled'}><span class="l">${ico('up')} Predict UP</span><small>${multTxt(mult(m, 'UP'))}</small></button><button class="rbtn down" data-predict="${m.id}:DOWN" ${open ? '' : 'disabled'}><span class="l">${ico('down')} Predict DOWN</span><small>${multTxt(mult(m, 'DOWN'))}</small></button></div>
+        ${open ? '' : `<p class="risk" style="margin-top:10px">${m.state === 'upcoming' ? 'This market opens for predictions soon.' : 'Predictions are closed for this round.'}</p>`}</div>
+      ${positionPanel(m)}
+      <div class="panel"><b>Verify onchain</b>${kv('Network', CONFIG.chains[CONFIG.network].name)}${kv('Market ID', '#' + m.id)}${kv('Market contract', addrLink(CONFIG.contracts.market) )}${kv('Oracle', m.oracle ? addrLink(m.oracle) : 'Not deployed yet')}${kv('Stock Token', m.token ? addrLink(m.token) : '—')}</div>
+    </aside></div></div>`;
+}
+
+function howView() {
+  const kv = (k, v) => `<div class="rowkv"><span>${k}</span><span>${v}</span></div>`;
+  return `<div class="wrap page"><h1>How it works</h1><p class="sub">Frogdiction is a parimutuel market. Everyone's stake goes into two pools, and the winning side splits the total.</p>
+    <div class="hw"><ol class="big">
+      <li><div><b>Choose a Stock Token</b><span>Only tokens approved in the onchain registry can be used.</span></div></li>
+      <li><div><b>Choose UP or DOWN</b><span>Will the oracle price at the end be above or below the lock price?</span></div></li>
+      <li><div><b>Enter your amount</b><span>Between ${CONFIG.minBet} and ${CONFIG.maxBet} TEST USDC per wallet, on one side only.</span></div></li>
+      <li><div><b>The market locks</b><span>No new predictions after lock time. The lock price is recorded.</span></div></li>
+      <li><div><b>The oracle provides the settlement price</b><span>Stale or invalid prices are rejected. Settlement waits for valid data.</span></div></li>
+      <li><div><b>The smart contract decides</b><span>Higher is UP, lower is DOWN, equal is a draw. The keeper can only trigger this.</span></div></li>
+      <li><div><b>Winners claim</b><span>Payout is your share of the pool after the ${CONFIG.feeBps / 100}% fee. Draws return every stake.</span></div></li></ol>
+      <div class="stack"><div class="panel"><h3>Rules at a glance</h3>${kv('Model', 'Parimutuel pools')}${kv('Fee', (CONFIG.feeBps / 100) + '% of the total pool')}${kv('Draw', 'Stakes returned')}${kv('Positions', 'One per wallet per market')}${kv('Cancelled market', 'Stakes refunded')}</div>
+      <div class="panel"><h3>Contracts</h3>${kv('Network', CONFIG.chains[CONFIG.network].name)}${kv('Chain ID', CONFIG.chains[CONFIG.network].id)}${kv('Factory', CONFIG.contracts.factory ? addrLink(CONFIG.contracts.factory) : 'Not deployed yet')}${kv('Market', CONFIG.contracts.market ? addrLink(CONFIG.contracts.market) : 'Not deployed yet')}${kv('Oracle', CONFIG.contracts.oracle ? addrLink(CONFIG.contracts.oracle) : 'Read from the market')}${kv('Settlement token', CONFIG.contracts.usdc ? addrLink(CONFIG.contracts.usdc) : 'Read from the market')}</div>
+      <div class="panel"><h3>Risks</h3><p class="muted" style="font-size:14px">You can lose your whole stake. Payouts change as pools change until the market locks. This is a testnet: TEST USDC has no real value, and real-money markets are switched off.</p></div></div></div></div>`;
+}
+
+function leaderboardView() {
+  return `<div class="wrap page"><h1>Leaderboard</h1><p class="sub">Wallets ranked by profit and loss, shown as shortened addresses.</p>
+    <div class="tablewrap" style="margin-top:22px"><table><thead><tr><th>Rank</th><th>Wallet</th><th>Predictions</th><th>Wins</th><th>Losses</th><th>Win rate</th><th>Volume</th><th>Profit/Loss</th></tr></thead>
+    <tbody><tr><td colspan="8" style="white-space:normal;text-align:center;padding:34px 14px;color:var(--muted)">No ranked wallets yet. Rankings appear after markets settle and winners claim.</td></tr></tbody></table></div></div>`;
+}
+
+function resultText(m, p) {
+  const pick = p.isUp ? 'UP' : 'DOWN';
+  if (m.state === 'settled') {
+    if (!m.refund) return m.outcome === pick ? 'Won' : 'Lost';
+    if (m.outcome === 'DRAW') return 'Refunded: price unchanged';
+    return `Refunded: price went ${m.outcome}, your pick was ${m.outcome === pick ? 'right ✓' : 'wrong ✗'} (no one on the other side)`;
+  }
+  return m.state === 'cancelled' ? 'Cancelled' : m.state === 'live' ? 'Live' : m.state === 'upcoming' ? 'Upcoming' : 'Locked';
+}
+function dashboardView() {
+  if (!state.account) return `<div class="wrap page"><h1>Dashboard</h1><div class="empty" style="margin-top:22px"><svg viewBox="0 0 200 160" aria-hidden="true"><use href="#frog-head"/></svg><b>Connect your wallet</b>Your address is your identity. No sign-up or personal details needed.<div style="margin-top:16px"><button class="btn btn-lime" data-act="connect">Connect Wallet</button></div></div></div>`;
+  const st = (k, v) => `<div class="panel"><small>${k}</small><b>${v}</b></div>`;
+  const emp = t => `<div class="empty" style="padding:22px 16px">${t}</div>`;
+  if (PREVIEW) return `<div class="wrap page"><h1>Dashboard</h1><p class="sub">${short(state.account)}</p>
+    <div class="dash-stats">${st('Win rate', '—')}${st('Total volume', '—')}${st('Wins', '—')}${st('Losses', '—')}${st('Profit/Loss', '—')}</div>
+    <div class="stack"><section><h3>Active predictions</h3>${emp('No active predictions. <a href="#/markets" style="color:var(--limet)">Browse markets</a>')}</section>
+    <section><h3>Claimable winnings and refunds</h3>${emp('Nothing to claim yet.')}</section><section><h3>Prediction history</h3>${emp('Your settled predictions will appear here once the chain is connected.')}</section></div></div>`;
+
+  const rows = MARKETS.map(m => ({ m, p: POS[m.id] })).filter(x => x.p && x.p.amount > 0);
+  const active = rows.filter(x => ['live', 'upcoming', 'locked'].includes(x.m.state));
+  const claimable = rows.filter(x => x.p.claimable > 0);
+  const history = rows.filter(x => x.m.state === 'settled' || x.m.state === 'cancelled');
+  let wins = 0, losses = 0, volume = 0, pnl = 0, refundedRounds = 0, refundedRight = 0;
+  for (const { m, p } of rows) {
+    volume += p.amount;
+    if (m.state === 'settled' && m.refund && (m.outcome === 'UP' || m.outcome === 'DOWN')) { refundedRounds++; if (m.outcome === (p.isUp ? 'UP' : 'DOWN')) refundedRight++; }
+    if (m.state !== 'settled' || m.refund) continue;
+    const won = m.outcome === (p.isUp ? 'UP' : 'DOWN');
+    const winPool = m.outcome === 'UP' ? m.up : m.down;
+    if (won) { wins++; pnl += p.amount * (m.up + m.down - m.feeAmount) / winPool - p.amount; } else { losses++; pnl -= p.amount; }
+  }
+  const decided = wins + losses;
+  const table = (list, withAction) => list.length ? `<div class="tablewrap"><table><thead><tr><th>Market</th><th>Side</th><th>Stake</th><th>Status</th><th></th></tr></thead><tbody>${list.map(({ m, p }) => {
+    const status = resultText(m, p);
+    return `<tr><td><a href="#/market/${m.id}" style="color:var(--limet)">${m.sym} #${m.id}</a></td><td class="${p.isUp ? 'up-c' : 'down-c'}">${p.isUp ? 'UP' : 'DOWN'}</td><td>${usd(p.amount)}</td><td>${status}${p.claimed ? ' (claimed)' : ''}</td><td>${withAction && p.claimable > 0 ? `<button class="btn btn-lime btn-sm" data-claim="${m.id}">Claim ${px(p.claimable)}</button>` : ''}</td></tr>`;
+  }).join('')}</tbody></table></div>` : null;
+  return `<div class="wrap page"><h1>Dashboard</h1><p class="sub">${short(state.account)}${state.chainId !== target().id ? ' · switch to ' + target().name + ' to load your positions' : ''}</p>
+    <div class="dash-stats">${st('Win rate', decided ? Math.round(wins / decided * 100) + '%' : '—')}${st('Total volume', usd(volume))}${st('Wins', wins)}${st('Losses', losses)}${st('Profit/Loss (est.)', (pnl >= 0 ? '+' : '−') + px(Math.abs(pnl)))}</div>
+    ${refundedRounds ? `<p class="risk" style="margin:-8px 0 16px">Refunded rounds (nobody on the other side, or an unchanged price) do not count as wins or losses. Your pick was right in ${refundedRight} of ${refundedRounds} of them.</p>` : ''}
+    <div class="stack"><section><h3>Active predictions</h3>${table(active, false) || emp('No active predictions. <a href="#/markets" style="color:var(--limet)">Browse markets</a>')}</section>
+    <section><h3>Claimable winnings</h3>${table(claimable, true) || emp('Nothing to claim yet.')}</section>
+    <section><h3>Prediction history</h3>${table(history, true) || emp('Your settled predictions will appear here.')}</section></div></div>`;
+}
+
+/* ═════════ Wallet & chain ═════════ */
+const state = { account: null, chainId: null };
+const target = () => CONFIG.chains[CONFIG.network];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const CH = { usdc: null, registry: null, bal: 0, allow: 0 };
+const POS = {}; // marketId -> { amount, isUp, claimed, claimable } for the connected wallet
+
+/* 4-byte selectors (keccak-256 of the signatures in the Solidity contracts). */
+const FN = {"marketCount": "0xec979082", "getMarket": "0xeb44fdd3", "positions": "0xe684d718", "claimable": "0xa0c7f71c", "predict": "0x6834dc23", "claim": "0x379607f5", "minBet": "0x9619367d", "maxBet": "0x2e5b2168", "feeBps": "0x24a9d853", "settlementToken": "0x7b9e618d", "registry": "0x7b103999", "balanceOf": "0x70a08231", "allowance": "0xdd62ed3e", "approve": "0x095ea7b3", "faucet": "0xde5f72fd", "getPrice": "0x41976e09", "getAsset": "0x30b8b2c6"};
+const ERR = {"0x2c5211c6": "InvalidAmount", "0x1fbaba35": "AmountTooLow", "0xfd7850ad": "AmountTooHigh", "0x3b9e91cf": "AlreadyPredicted", "0x0b5f6bf0": "MarketClosed", "0x774620b8": "MarketNotStarted", "0x7db1be50": "MarketNotFound", "0xf4d678b8": "InsufficientBalance", "0x13be252b": "InsufficientAllowance", "0xba329a9b": "NotSettled", "0xabf0f034": "NoPosition", "0x618c7242": "NotWinner", "0x646cf558": "AlreadyClaimed", "0xd93c0665": "EnforcedPause", "0x04578698": "OracleStale", "0x00bfc921": "InvalidPrice", "0xb0a6ea29": "TransferAmountMismatch", "0xacd7928c": "WindowMissed", "0x085de625": "TooEarly", "0x5f0ccd7c": "AlreadyLocked", "0x560ff900": "AlreadySettled", "0xf525e320": "InvalidStatus", "0x7454c9a2": "FeedNotConfigured", "0x1fa6db66": "FeedDisabled", "0x6e4ba61d": "PriceOutOfBounds", "0x470cbf47": "AssetNotFound", "0xf611219f": "AssetNotActive", "0x12272bab": "FaucetCooldown"};
+const HUMAN = {
+  InvalidAmount: 'Enter an amount above zero.', AmountTooLow: 'That is below the minimum amount.', AmountTooHigh: 'That is above the maximum amount.',
+  AlreadyPredicted: 'You already have a position in this market.', MarketClosed: 'This market is closed for predictions.', MarketNotStarted: 'This market has not opened yet.',
+  MarketNotFound: 'That market does not exist.', InsufficientBalance: 'Not enough TEST USDC in your wallet.', InsufficientAllowance: 'Approve TEST USDC first.',
+  NotSettled: 'This market is not settled yet.', NoPosition: 'You have no position in this market.', NotWinner: 'Your side did not win, so there is nothing to claim.',
+  AlreadyClaimed: 'You already claimed this one.', EnforcedPause: 'The protocol is paused right now.', FaucetCooldown: 'The faucet is on cooldown. Try again in about an hour.',
+  OracleStale: 'The price feed is stale right now.', InvalidPrice: 'The price feed returned an invalid price.', TransferAmountMismatch: 'The token transfer did not match the amount.'
+};
+
+const encU = n => BigInt(n).toString(16).padStart(64, '0');
+const encA = a => a.toLowerCase().replace(/^0x/, '').padStart(64, '0');
+const encB = b => (b ? '1' : '0').padStart(64, '0');
+const wd = (hex, i) => hex.slice(2 + 64 * i, 2 + 64 * (i + 1));
+const wBig = (hex, i) => BigInt('0x' + wd(hex, i));
+const wAddr = (hex, i) => '0x' + wd(hex, i).slice(24);
+const toUnits = v => BigInt(Math.round(v * 1e6));
+const explorerAddr = a => `${target().explorer}/address/${a}`;
+const explorerTx = h => `${target().explorer}/tx/${h}`;
+const addrLink = a => a ? `<a href="${explorerAddr(a)}" target="_blank" rel="noopener noreferrer" style="color:var(--limet)">${short(a)}</a>` : '—';
+
+let rpcId = 1;
+/* Reads go through the connected wallet when it is on the right network, otherwise straight to the public RPC. */
+async function rpc(method, params) {
+  const eth = window.ethereum;
+  if (state.account && eth && state.chainId === target().id) return eth.request({ method, params });
+  const res = await fetch(target().rpc, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: rpcId++, method, params }) });
+  const j = await res.json();
+  if (j.error) { const e = new Error(j.error.message || 'RPC error'); e.data = j.error.data; throw e; }
+  return j.result;
+}
+const ethCall = (to, data, from) => rpc('eth_call', [Object.assign({ to, data }, from ? { from } : {}), 'latest']);
+
+function readString(hex, base, off) {
+  const start = base + off;
+  const len = Number(BigInt('0x' + hex.slice(2 + start * 2, 2 + start * 2 + 64)));
+  const bytes = hex.slice(2 + (start + 32) * 2, 2 + (start + 32) * 2 + len * 2);
+  let s = ''; for (let i = 0; i < bytes.length; i += 2) s += String.fromCharCode(parseInt(bytes.slice(i, i + 2), 16));
+  return s;
+}
+function decodeAsset(hex) {
+  const base = Number(wBig(hex, 0));
+  const head = k => BigInt('0x' + hex.slice(2 + (base + 32 * k) * 2, 2 + (base + 32 * (k + 1)) * 2));
+  return { symbol: readString(hex, base, Number(head(0))), name: readString(hex, base, Number(head(1))), token: '0x' + head(2).toString(16).padStart(40, '0') };
+}
+function decodeMarket(hex, id) {
+  const n = i => Number(wBig(hex, i));
+  return { id, stockToken: wAddr(hex, 1), oracle: wAddr(hex, 2), startTime: n(3), lockTime: n(4), endTime: n(5), feeBps: n(6), status: n(7), outcome: n(8), refundAll: wBig(hex, 9) !== 0n,
+    lockPrice: n(10) / 1e18, settlementPrice: n(11) / 1e18, up: n(12) / 1e6, down: n(13) / 1e6, feeAmount: n(15) / 1e6 };
+}
+function deriveState(m) {
+  const now = Date.now();
+  if (m.status === 4) return 'cancelled';
+  if (m.status === 3) return 'settled';
+  if (m.status === 2) return 'locked';
+  if (now < m.startAt) return 'upcoming';
+  if (now < m.lockAt) return 'live';
+  return 'locked';
+}
+function toModel(p, a, price) {
+  const sym = a.symbol, settled = p.status === 3;
+  const m = { chain: true, id: p.id, sym, name: a.name, hue: HUES[sym] != null ? HUES[sym] : hash(sym) % 360, token: p.stockToken, oracle: p.oracle, status: p.status,
+    price: settled ? p.settlementPrice : (price != null ? price : (p.lockPrice || null)), priceStale: !settled && price == null,
+    chg: null, dur: Math.round((p.lockTime - p.startTime) / 60), up: p.up, down: p.down, round: p.id, series: null, candles: null, startPrice: null,
+    lockPrice: p.lockPrice || null, settlePrice: settled ? p.settlementPrice : null, outcome: settled ? (['', 'UP', 'DOWN', 'DRAW'][p.outcome] || null) : null,
+    refund: settled && p.refundAll, feeAmount: p.feeAmount, startAt: p.startTime * 1000, lockAt: p.lockTime * 1000, endAt: p.endTime * 1000 };
+  m.state = deriveState(m);
+  return m;
+}
+
+async function loadChain() {
+  const mk = CONFIG.contracts.market;
+  const code = await rpc('eth_getCode', [mk, 'latest']);
+  if (!code || code === '0x') throw new Error('no contract found at the market address');
+  const [tokW, regW, minW, maxW, feeW, cntW] = await Promise.all([FN.settlementToken, FN.registry, FN.minBet, FN.maxBet, FN.feeBps, FN.marketCount].map(s => ethCall(mk, s)));
+  CH.usdc = wAddr(tokW, 0); CH.registry = wAddr(regW, 0);
+  CONFIG.contracts.usdc = CH.usdc; CONFIG.contracts.registry = CH.registry;
+  CONFIG.minBet = Number(wBig(minW, 0)) / 1e6; CONFIG.maxBet = Number(wBig(maxW, 0)) / 1e6;
+  CONFIG.feeBps = Number(wBig(feeW, 0)); FEE = CONFIG.feeBps / 10000;
+
+  const n = Number(wBig(cntW, 0)), ids = [];
+  for (let i = Math.max(1, n - 29); i <= n; i++) ids.push(i);
+  const raws = await Promise.all(ids.map(id => ethCall(mk, FN.getMarket + encU(id))));
+  const ps = raws.map((h, i) => decodeMarket(h, ids[i]));
+
+  const assets = {};
+  await Promise.all([...new Set(ps.map(p => p.stockToken))].map(async t => { assets[t] = decodeAsset(await ethCall(CH.registry, FN.getAsset + encA(t))); }));
+  const prices = {};
+  await Promise.all([...new Set(ps.map(p => p.oracle + ':' + p.stockToken))].map(async k => {
+    const [o, t] = k.split(':');
+    try { prices[k] = Number(wBig(await ethCall(o, FN.getPrice + encA(t)), 0)) / 1e18; } catch { prices[k] = null; }
+  }));
+  const models = ps.map(p => toModel(p, assets[p.stockToken], prices[p.oracle + ':' + p.stockToken])).reverse(); // newest first
+  CONFIG.contracts.oracle = ps.length ? ps[ps.length - 1].oracle : null;
+  MARKETS.splice(0, MARKETS.length, ...models);
+}
+async function loadPositions() {
+  if (!state.account || PREVIEW) return;
+  const mk = CONFIG.contracts.market, a = encA(state.account);
+  await Promise.all(MARKETS.map(async m => {
+    try {
+      const [pw, cw] = await Promise.all([ethCall(mk, FN.positions + encU(m.id) + a), ethCall(mk, FN.claimable + encU(m.id) + a)]);
+      POS[m.id] = { amount: Number(wBig(pw, 0)) / 1e6, isUp: wBig(pw, 1) !== 0n, claimed: wBig(pw, 2) !== 0n, claimable: Number(wBig(cw, 0)) / 1e6 };
+    } catch { }
+  }));
+}
+async function loadWallet() {
+  if (!state.account || PREVIEW || !CH.usdc) return;
+  try {
+    const [b, al] = await Promise.all([ethCall(CH.usdc, FN.balanceOf + encA(state.account)), ethCall(CH.usdc, FN.allowance + encA(state.account) + encA(CONFIG.contracts.market))]);
+    CH.bal = Number(BigInt(b)) / 1e6; CH.allow = Number(BigInt(al)) / 1e6;
+  } catch { }
+}
+function setStrip(mode, e) {
+  const el = $('#strip'); if (!el) return;
+  el.textContent = mode === 'live' ? 'TESTNET: markets are read from Robinhood Chain Testnet. TEST USDC has no real value.'
+    : mode === 'error' ? `Could not read the chain (${e && e.message ? e.message : 'unknown error'}). Showing sample data. Connect a wallet on ${target().name} to retry.`
+    : "Preview build: the markets you see are sample data. Contracts aren't deployed yet, so no transactions can be sent.";
+}
+async function bootChain() {
+  if (!CONFIG.contracts.market) { setStrip('preview'); return; }
+  try { await loadChain(); PREVIEW = false; setStrip('live'); await loadPositions(); await loadWallet(); }
+  catch (e) { PREVIEW = true; setStrip('error', e); }
+  route(true);
+}
+async function refreshChain() {
+  try { await loadChain(); await loadPositions(); await loadWallet(); } catch { }
+  route(true);
+}
+async function afterWalletChange() {
+  if (PREVIEW && CONFIG.contracts.market) await bootChain(); else { await loadPositions(); await loadWallet(); route(true); }
+  refreshDialog();
+}
+
+function walletUI() {
+  const b = $('#walletBtn'), wrong = state.account && state.chainId !== target().id;
+  b.classList.toggle('wrong', !!wrong);
+  b.innerHTML = !state.account ? 'Connect Wallet' : wrong ? 'Switch network' : `<span class="addr">${short(state.account)}</span>`;
+  $('#netDot').classList.toggle('warn', !!wrong);
+}
+async function switchNet() {
+  const eth = window.ethereum, c = target(); if (!eth) return;
+  try { await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: c.hex }] }); }
+  catch (e) {
+    if (e && (e.code === 4902 || e.code === -32603)) {
+      try { await eth.request({ method: 'wallet_addEthereumChain', params: [{ chainId: c.hex, chainName: c.name, nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: [c.rpc], blockExplorerUrls: [c.explorer] }] }); }
+      catch { toast('The network was not added. Add ' + c.name + ' in your wallet and try again.'); }
+    } else if (e && e.code === 4001) toast('Network switch was cancelled.'); else toast('Could not switch network.');
+  }
+  try { state.chainId = parseInt(await eth.request({ method: 'eth_chainId' }), 16); } catch { }
+  walletUI(); afterWalletChange();
+}
+async function connect() {
+  const eth = window.ethereum;
+  if (!eth) { toast('No wallet found. Install MetaMask or another EVM wallet to connect.'); return; }
+  try {
+    const acc = await eth.request({ method: 'eth_requestAccounts' });
+    state.account = acc[0]; state.chainId = parseInt(await eth.request({ method: 'eth_chainId' }), 16);
+    walletUI(); if (state.chainId !== target().id) toast('Wrong network. Switch to ' + target().name + '.');
+    await afterWalletChange();
+  } catch (e) { toast(e && e.code === 4001 ? 'Connection request was rejected.' : 'Could not connect the wallet.'); }
+}
+if (window.ethereum && window.ethereum.on) {
+  window.ethereum.on('accountsChanged', a => { state.account = a[0] || null; if (!state.account) { for (const k in POS) delete POS[k]; } walletUI(); afterWalletChange(); });
+  window.ethereum.on('chainChanged', c => { state.chainId = parseInt(c, 16); walletUI(); afterWalletChange(); });
+}
+
+/* ═════════ Transactions ═════════ */
+const escHtml = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function errMsg(e) {
+  console.error('[frogdiction] transaction error', e);
+  let blob = ''; try { blob = JSON.stringify(e, Object.getOwnPropertyNames(e || {})); } catch { blob = String(e); }
+  blob += ' ' + (e && e.message ? e.message : '');
+  const hits = blob.match(/0x[0-9a-fA-F]{8}/g) || [];
+  for (const h of hits) { const name = ERR[h.toLowerCase()]; if (name) return HUMAN[name] || name; }
+  if ((e && e.code === 4001) || /user rejected|user denied|rejected the request|denied transaction/i.test(blob)) return 'You rejected the request in your wallet.';
+  if (e && e.code === -32002) return 'MetaMask already has a request waiting. Open MetaMask and confirm or reject it first.';
+  if (/insufficient funds|exceeds the balance|gas required exceeds/i.test(blob)) return 'Not enough test ETH for gas. Get some from the faucet, then try again.';
+  const raw = String((e && (e.shortMessage || e.message)) || e || '').split('\n')[0].replace(/\s+/g, ' ').slice(0, 140);
+  return 'The transaction could not be sent' + (raw ? ' (' + raw + ')' : '') + '. Nothing was spent.';
+}
+async function runTx(to, data, say) {
+  await ethCall(to, data, state.account); // simulate first: contract errors show up before any wallet prompt
+  say('Waiting for wallet…');
+  const hash = await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from: state.account, to, data }] });
+  say('Confirming…', hash);
+  for (let i = 0; i < 90; i++) {
+    let r = null; try { r = await rpc('eth_getTransactionReceipt', [hash]); } catch { }
+    if (r) { if (r.status === '0x1') return hash; throw new Error('The transaction was reverted onchain.'); }
+    await sleep(2000);
+  }
+  throw new Error('Timed out waiting for confirmation. Check the explorer.');
+}
+function ready() {
+  if (PREVIEW) { toast('The chain is not connected yet, so nothing can be sent.'); return false; }
+  if (!state.account) { connect(); return false; }
+  if (state.chainId !== target().id) { switchNet(); return false; }
+  return true;
+}
+async function claimMarket(id) {
+  if (!ready()) return;
+  try {
+    await runTx(CONFIG.contracts.market, FN.claim + encU(id), m => toast(m));
+    toast('Claimed. The payout is in your wallet.');
+    await refreshChain();
+  } catch (e) { toast(errMsg(e)); }
+}
+async function faucetUSDC() {
+  if (!ready()) return;
+  try {
+    await runTx(CH.usdc, FN.faucet, m => toast(m));
+    toast('1,000 TEST USDC sent to your wallet.');
+    await loadWallet(); refreshDialog();
+  } catch (e) { toast(errMsg(e)); }
+}
+function faucetBtns() {
+  const eth = `<a class="btn btn-ghost" href="${target().faucet}" target="_blank" rel="noopener noreferrer" title="Third-party faucet (QuickNode). Test ETH pays for gas.">${ico('drop')} Get test ETH (gas)</a>`;
+  return PREVIEW ? eth.replace('Get test ETH (gas)', 'Get Test Tokens') : `<button class="btn btn-ghost" data-act="faucet-usdc">${ico('drop')} Get test USDC</button>${eth}`;
+}
+
+/* ═════════ Prediction dialog ═════════ */
+const dlg = $('#dlg'); let dm = null;
+function txHtml() {
+  if (!dm || !dm.tx) return '';
+  const t = dm.tx;
+  return `<div class="notice ${t.kind || ''}">${escHtml(t.msg)}${t.hash ? ` <a href="${explorerTx(t.hash)}" target="_blank" rel="noopener noreferrer">View transaction</a>` : ''}</div>`;
+}
+function setTx(msg, hash, kind) { if (!dm) return; dm.tx = { msg, hash, kind }; const el = $('#txs'); if (el) el.innerHTML = txHtml(); }
+function openPredict(id, side) {
+  const m = byId(id); if (!m || m.state !== 'live') { toast('This market is not open for predictions.'); return; }
+  dm = { m, side, amt: 10, busy: false, tx: null };
+  renderDialog(); if (!dlg.open) dlg.showModal(); $('#amt').focus();
+  if (!PREVIEW && state.account) loadWallet().then(() => { if (dlg.open && dm && dm.m.id === m.id) refreshDialog(); });
+}
+function refreshDialog() { if (dlg.open && dm) { const v = $('#amt') ? $('#amt').value : null; renderDialog(); if (v !== null) { $('#amt').value = v; calc(); } } }
+function doneHtml() {
+  const p = dm.placed || {};
+  const kv = (k, v) => `<div class="rowkv"><span>${k}</span><span>${v}</span></div>`;
+  return `<div class="dlg-head"><div class="tile" style="--h:${dm.m.hue}">${dm.m.sym.slice(0, 4)}</div><div><h3 id="dlgTitle">Prediction placed</h3><div class="cname">${dm.m.sym} round #${p.round}. TESTNET</div></div><button class="icon-btn x" data-act="close" aria-label="Close">${ico('x')}</button></div>
+    <div class="summary">${kv('Market', escHtml(p.sym) + ' #' + p.id)}${kv('Your side', `<b class="${p.side === 'UP' ? 'up-c' : 'down-c'}">${p.side}</b>`)}${kv('Amount', px(p.amt).replace('$', '') + ' TEST USDC')}${kv('Status', 'Confirmed onchain')}</div>
+    <div id="txs" class="txs">${txHtml()}</div>
+    <div class="acts"><button class="btn btn-lime" data-act="dash">View my predictions</button><button class="btn btn-ghost" data-act="close">Close</button></div>
+    <p class="risk">Your position is also on the market page. When the market settles, come back to the Dashboard to claim.</p>`;
+}
+function renderDialog() {
+  if (dm.done) { $('#dlgBody').innerHTML = doneHtml(); return; }
+  const { m, side } = dm, up = side === 'UP';
+  const wrong = state.account && state.chainId !== target().id;
+  const live = !PREVIEW && state.account && !wrong;
+  let acts;
+  if (!state.account) acts = `<button class="btn btn-lime" data-act="connect">Connect Wallet</button>`;
+  else if (wrong) acts = `<button class="btn btn-lime" data-act="switch">Switch to ${target().name}</button>`;
+  else if (PREVIEW) acts = `<button class="btn btn-lime" disabled aria-disabled="true">Approve TEST USDC</button><button class="btn btn-ghost" disabled aria-disabled="true">Confirm prediction</button>`;
+  else acts = `<button class="btn btn-lime" id="btnApprove" data-act="approve">Approve TEST USDC</button><button class="btn btn-ghost" id="btnConfirm" data-act="confirm">Confirm prediction</button>`;
+  const balRow = live ? `<div class="rowkv" style="border:0;padding:0"><span>Your balance</span><b>${CH.bal.toLocaleString('en-US', { maximumFractionDigits: 2 })} TEST USDC</b></div>` : '';
+  $('#dlgBody').innerHTML = `
+    <div class="dlg-head"><div class="tile" style="--h:${m.hue}">${m.sym.slice(0, 4)}</div><div><h3 id="dlgTitle">${m.sym}: Predict <span class="${up ? 'up-c' : 'down-c'}">${side}</span></h3><div class="cname">${m.dur === 60 ? '1 hour' : m.dur + ' minute'} round #${m.round}. TESTNET</div></div><button class="icon-btn x" data-act="close" aria-label="Close">${ico('x')}</button></div>
+    <div class="rowkv" style="border:0;padding:0"><span>Current price</span><b>${px(m.price)}</b></div>
+    ${balRow}
+    <div><label class="sr" for="amt">Amount in TEST USDC</label><div class="field"><input id="amt" inputmode="decimal" autocomplete="off" value="${dm.amt}"><span>TEST USDC</span></div>
+      <div class="chips" style="margin-top:10px">${[5, 10, 50, 100].map(v => `<button class="chip" data-amt="${v}">${v}</button>`).join('')}<span class="risk" style="align-self:center">Min ${CONFIG.minBet}, max ${CONFIG.maxBet}</span></div><div class="err" id="err" role="alert"></div><div id="needUsdc"></div></div>
+    <div class="summary"><div class="rowkv"><span>Potential payout (TEST USDC)</span><span class="big" id="pay">—</span></div><div class="rowkv"><span>Multiple</span><span id="mul">—</span></div><div class="rowkv"><span>Protocol fee</span><span>${CONFIG.feeBps / 100}% of the total pool</span></div></div>
+    <div id="sideNote" class="risk"></div>
+    ${PREVIEW ? `<div class="notice">Preview build: the chain is not connected, so nothing is sent from your wallet and no prediction is placed.</div>` : ''}
+    <div id="txs" class="txs">${txHtml()}</div>
+    <div class="acts">${acts}</div>
+    <p class="risk">The payout is an estimate. It changes as other people predict until the market locks. TEST USDC has no real value, and you can lose your whole stake.</p>`;
+  calc();
+}
+function calc() {
+  if (!dm) return; const inp = $('#amt'); if (!inp) return;
+  const v = parseFloat(String(inp.value).replace(',', '.')), err = $('#err');
+  let msg = '';
+  if (inp.value.trim() === '' || isNaN(v)) msg = 'Enter an amount.';
+  else if (v < CONFIG.minBet) msg = `Minimum is ${CONFIG.minBet} TEST USDC.`;
+  else if (v > CONFIG.maxBet) msg = `Maximum is ${CONFIG.maxBet} TEST USDC.`;
+  err.textContent = msg; dm.amt = isNaN(v) ? 0 : v;
+  const sn = $('#sideNote'); if (sn) sn.textContent = (dm.side === 'UP' ? dm.m.down : dm.m.up) === 0 ? 'Nobody is on the other side yet. If it stays that way, every stake is refunded in full with no fee.' : '';
+
+  if (!PREVIEW && state.account && state.chainId === target().id) {
+    const bad = !!msg, needApprove = !bad && CH.allow < v, lowBal = !bad && CH.bal < v;
+    const a = $('#btnApprove'), c = $('#btnConfirm');
+    const approvedStep = !bad && !needApprove;
+    if (a) { a.disabled = bad || dm.busy || !needApprove || lowBal; a.setAttribute('aria-disabled', String(a.disabled)); a.textContent = approvedStep ? 'Step 1: approved ✓' : 'Step 1: Approve TEST USDC'; a.classList.toggle('btn-lime', !approvedStep); a.classList.toggle('btn-ghost', approvedStep); }
+    if (c) { c.disabled = bad || dm.busy || needApprove || lowBal; c.setAttribute('aria-disabled', String(c.disabled)); c.textContent = 'Step 2: Confirm prediction'; c.classList.toggle('btn-lime', approvedStep); c.classList.toggle('btn-ghost', !approvedStep); }
+    const nu = $('#needUsdc'); if (nu) nu.innerHTML = lowBal ? `<div class="risk" style="margin:8px 0 6px">Not enough TEST USDC.</div><button class="btn btn-ghost btn-sm" data-act="faucet-usdc">Get test USDC</button>` : '';
+  }
+  if (msg) { $('#pay').textContent = '—'; $('#mul').textContent = '—'; return; }
+  const pay = payoutFor(dm.m, dm.side, v); $('#pay').textContent = px(pay); $('#mul').textContent = (Math.floor(pay / v * 100) / 100).toFixed(2) + 'x';
+}
+async function doApprove() {
+  if (!dm || dm.busy || !ready()) return;
+  dm.busy = true; calc();
+  try {
+    await runTx(CH.usdc, FN.approve + encA(CONFIG.contracts.market) + encU(toUnits(dm.amt)), setTx);
+    await loadWallet();
+    setTx('Approved. Now confirm your prediction.', null, 'ok');
+  } catch (e) { setTx(errMsg(e), null, 'err'); }
+  if (dm) { dm.busy = false; calc(); }
+}
+async function doPredict() {
+  if (!dm || dm.busy || !ready()) return;
+  dm.busy = true; calc();
+  try {
+    const hash = await runTx(CONFIG.contracts.market, FN.predict + encU(dm.m.id) + encB(dm.side === 'UP') + encU(toUnits(dm.amt)), setTx);
+    setTx('Confirmed. Your prediction is onchain.', hash, 'ok');
+    dm.done = true;
+    dm.placed = { side: dm.side, amt: dm.amt, sym: dm.m.sym, id: dm.m.id, round: dm.m.round };
+    await refreshChain(); await loadWallet();
+    if (dlg.open && dm) renderDialog();
+  } catch (e) { setTx(errMsg(e), null, 'err'); }
+  if (dm) { dm.busy = false; calc(); }
+}
+
+/* ═════════ Router & events ═════════ */
+const app = $('#app');
+function route(keep) {
+  const h = location.hash.slice(1) || '/'; const [path, qs] = h.split('?'); const q = new URLSearchParams(qs || ''); const seg = path.split('/').filter(Boolean);
+  const y = window.scrollY; let html, title = 'Frogdiction — Predict the market', cur = seg[0] || '';
+  if (!seg.length || cur === 'stats') html = homeView();
+  else if (cur === 'markets') { html = marketsView(q); title = 'Markets — Frogdiction'; if (q.get('s') === 'live') cur = 'live'; }
+  else if (cur === 'market') { html = marketView(seg[1]); title = 'Market — Frogdiction'; cur = 'markets'; }
+  else if (cur === 'how-it-works') { html = howView(); title = 'How it works — Frogdiction'; }
+  else if (cur === 'leaderboard') { html = leaderboardView(); title = 'Leaderboard — Frogdiction'; }
+  else if (cur === 'dashboard') { html = dashboardView(); title = 'Dashboard — Frogdiction'; }
+  else html = `<div class="wrap page"><div class="empty"><svg viewBox="0 0 200 160" aria-hidden="true"><use href="#frog-head"/></svg><b>Page not found</b><a href="#/" style="color:var(--limet)">Back to home</a></div></div>`;
+  app.innerHTML = html; document.title = title;
+  $$('#nav a').forEach(a => a.getAttribute('data-r') === cur ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
+  $('#nav').classList.remove('open'); $('#burger').setAttribute('aria-expanded', 'false');
+  if (keep === true) window.scrollTo(0, y); else if (seg[0] === 'stats') $('#live-stats').scrollIntoView(); else window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', () => route());
+
+document.addEventListener('click', e => {
+  const t = e.target;
+  const pr = t.closest('[data-predict]'); if (pr) { e.stopPropagation(); const [id, side] = pr.dataset.predict.split(':'); openPredict(id, side); return; }
+  const f = t.closest('[data-f]'); if (f) { const [k, v] = f.dataset.f.split(':'); const q = new URLSearchParams((location.hash.split('?')[1]) || ''); v === 'all' ? q.delete(k) : q.set(k, v); location.hash = '/markets' + (q.toString() ? '?' + q : ''); return; }
+  const a = t.closest('[data-amt]'); if (a) { $('#amt').value = a.dataset.amt; calc(); return; }
+  const cl = t.closest('[data-claim]'); if (cl) { claimMarket(Number(cl.dataset.claim)); return; }
+  const act = t.closest('[data-act]'); if (act) { const k = act.dataset.act; if (k === 'connect') connect(); if (k === 'switch') switchNet(); if (k === 'close') dlg.close(); if (k === 'approve') doApprove(); if (k === 'confirm') doPredict(); if (k === 'faucet-usdc') faucetUSDC(); if (k === 'dash') { dlg.close(); location.hash = '/dashboard'; } return; }
+  const card = t.closest('[data-open]'); if (card) { location.hash = '/market/' + card.dataset.open; return; }
+  const nb = t.closest('[data-net]'); if (nb && !nb.disabled) { $('#netMenu').hidden = true; $('#netBtn').setAttribute('aria-expanded', 'false'); return; }
+  if (!t.closest('.netsel')) { $('#netMenu').hidden = true; $('#netBtn').setAttribute('aria-expanded', 'false'); }
+});
+document.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.mcard')) { e.preventDefault(); location.hash = '/market/' + e.target.dataset.open; }
+  if (e.key === 'Escape') { $('#netMenu').hidden = true; $('#netBtn').setAttribute('aria-expanded', 'false'); }
+});
+document.addEventListener('input', e => { if (e.target.id === 'amt') calc(); });
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+$('#netBtn').addEventListener('click', e => { e.stopPropagation(); const m = $('#netMenu'); m.hidden = !m.hidden; $('#netBtn').setAttribute('aria-expanded', String(!m.hidden)); });
+$('#walletBtn').addEventListener('click', () => { if (!state.account) connect(); else if (state.chainId !== target().id) switchNet(); else location.hash = '/dashboard'; });
+$('#burger').addEventListener('click', () => { const n = $('#nav'); const o = n.classList.toggle('open'); $('#burger').setAttribute('aria-expanded', String(o)); });
+const flipTheme = () => { const r = document.documentElement; const cur = r.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'); r.dataset.theme = cur === 'light' ? 'dark' : 'light'; };
+$('#themeBtn').addEventListener('click', flipTheme); $('#themeLink').addEventListener('click', flipTheme);
+$('#yr').textContent = new Date().getFullYear();
+
+/* Countdown loop. In PREVIEW mode, rolling to a new round after a lock is a demo-only loop so the sample never goes stale.
+   With the chain connected, states come from the contract status plus the clock. */
+setInterval(() => {
+  const now = Date.now(); let changed = false;
+  if (!PREVIEW) {
+    for (const m of MARKETS) { const s = deriveState(m); if (s !== m.state) { m.state = s; changed = true; } }
+  } else {
+    for (const m of MARKETS) {
+      if (m.state === 'settled') continue;
+      const prev = m.state;
+      if (m.state === 'upcoming' && now >= m.startAt) m.state = 'live';
+      if (m.state === 'live' && now >= m.lockAt) { m.state = 'locked'; m.lockPrice = m.price; m.lockedAt = now; }
+      if (m.state === 'locked' && now - m.lockedAt > 8000) { m.state = 'live'; m.lockAt = now + m.dur * 60000; m.lockPrice = null; m.round++; }
+      if (m.state !== prev) changed = true;
+    }
+  }
+  if (changed) {
+    if (dlg.open && dm && !dm.busy && !dm.done && dm.m.state !== 'live') { dlg.close(); toast('This market has locked.'); }
+    route(true);
+    if (!PREVIEW) refreshChain();
+  } else $$('[data-cd]').forEach(el => { const m = byId(el.dataset.cd); if (m) el.textContent = cdText(m); });
+}, 1000);
+setInterval(() => { if (!PREVIEW && !document.hidden && !(dm && dm.busy)) refreshChain(); }, 20000);
+
+walletUI(); route(); bootChain();
+</script>
+</body>
+</html>
