@@ -100,6 +100,7 @@ header.site { position:sticky; top:env(safe-area-inset-top,0px); z-index:50; bac
 .nav a:hover, .nav a[aria-current="page"] { color:var(--text); background:var(--line); }
 .tools { margin-left:auto; display:flex; align-items:center; gap:10px; }
 .netsel { position:relative; }
+.wallet-wrap { position:relative; }
 .netbtn { white-space:nowrap; display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; border:1px solid var(--line2); background:transparent; font-size:13px; font-weight:500; }
 .dot { width:8px; height:8px; border-radius:50%; background:var(--lime); box-shadow:0 0 0 3px rgba(164,242,61,.2); flex:none; }
 .dot.warn { background:var(--warn); box-shadow:0 0 0 3px rgba(255,207,90,.2); }
@@ -426,7 +427,17 @@ dialog::backdrop { background:rgba(2,10,5,.72); -webkit-backdrop-filter:blur(3px
           <button data-net="mainnet" disabled><b>Robinhood Chain Mainnet</b><small>Chain ID 4663. Off: real-money markets are disabled.</small></button>
         </div>
       </div>
-      <button class="btn btn-lime btn-sm wbtn" id="walletBtn">Connect Wallet</button>
+      <div class="wallet-wrap" id="walletWrap">
+        <button class="btn btn-lime btn-sm wbtn" id="walletBtn" aria-haspopup="true" aria-expanded="false">Connect Wallet</button>
+        <div class="netmenu" id="walletMenu" hidden>
+          <div class="wm-addr" id="wmAddr" style="padding:10px 12px 4px;font-size:13px;color:var(--muted)"></div>
+          <button data-wact="copy">Copy address</button>
+          <button data-wact="explorer">View on explorer</button>
+          <button data-wact="dashboard"><b>Dashboard</b><small>Your predictions and claims</small></button>
+          <button data-wact="switch" id="wmSwitch" style="display:none"><b>Switch network</b><small>You're on the wrong network</small></button>
+          <button data-wact="disconnect"><b>Disconnect</b><small>Forgets this connection in the app</small></button>
+        </div>
+      </div>
       <button class="icon-btn" id="themeBtn" aria-label="Switch light or dark theme"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/></svg></button>
       <button class="icon-btn burger" id="burger" aria-label="Open menu" aria-expanded="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     </div>
@@ -1103,6 +1114,19 @@ function walletUI() {
   b.classList.toggle('wrong', !!wrong);
   b.innerHTML = !state.account ? 'Connect Wallet' : wrong ? 'Switch network' : `<span class="addr">${short(state.account)}</span>`;
   $('#netDot').classList.toggle('warn', !!wrong);
+  if (!state.account) { $('#walletMenu').hidden = true; b.setAttribute('aria-expanded', 'false'); return; }
+  $('#wmAddr').textContent = state.account;
+  $('#wmSwitch').style.display = wrong ? '' : 'none';
+}
+function disconnectWallet() {
+  state.account = null; state.chainId = null;
+  for (const k in POS) delete POS[k];
+  CH.bal = 0; CH.allow = 0;
+  walletUI();
+  if (dlg.open) dlg.close();
+  if (location.hash.startsWith('#/dashboard')) location.hash = '/';
+  route(true);
+  toast('Disconnected. Your wallet still holds any test funds.');
 }
 async function switchNet() {
   const eth = window.ethereum, c = target(); if (!eth) return;
@@ -1306,16 +1330,33 @@ document.addEventListener('click', e => {
   const act = t.closest('[data-act]'); if (act) { const k = act.dataset.act; if (k === 'connect') connect(); if (k === 'switch') switchNet(); if (k === 'close') dlg.close(); if (k === 'approve') doApprove(); if (k === 'confirm') doPredict(); if (k === 'faucet-usdc') faucetUSDC(); if (k === 'dash') { dlg.close(); location.hash = '/dashboard'; } return; }
   const card = t.closest('[data-open]'); if (card) { location.hash = '/market/' + card.dataset.open; return; }
   const nb = t.closest('[data-net]'); if (nb && !nb.disabled) { $('#netMenu').hidden = true; $('#netBtn').setAttribute('aria-expanded', 'false'); return; }
-  if (!t.closest('.netsel')) { $('#netMenu').hidden = true; $('#netBtn').setAttribute('aria-expanded', 'false'); }
+  const wa = t.closest('[data-wact]');
+  if (wa) {
+    const k = wa.dataset.wact;
+    if (k === 'copy') { navigator.clipboard?.writeText(state.account).then(() => toast('Address copied.')).catch(() => toast('Could not copy the address.')); }
+    else if (k === 'explorer') { window.open(explorerAddr(state.account), '_blank', 'noopener,noreferrer'); }
+    else if (k === 'dashboard') { location.hash = '/dashboard'; }
+    else if (k === 'switch') { switchNet(); }
+    else if (k === 'disconnect') { disconnectWallet(); }
+    $('#walletMenu').hidden = true; $('#walletBtn').setAttribute('aria-expanded', 'false');
+    return;
+  }
+  if (!t.closest('#walletWrap')) { $('#walletMenu').hidden = true; $('#walletBtn').setAttribute('aria-expanded', 'false'); }
+  if (!t.closest('.netsel') || t.closest('#walletWrap')) { $('#netMenu').hidden = true; $('#netBtn').setAttribute('aria-expanded', 'false'); }
 });
 document.addEventListener('keydown', e => {
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.mcard')) { e.preventDefault(); location.hash = '/market/' + e.target.dataset.open; }
-  if (e.key === 'Escape') { $('#netMenu').hidden = true; $('#netBtn').setAttribute('aria-expanded', 'false'); }
+  if (e.key === 'Escape') { $('#netMenu').hidden = true; $('#netBtn').setAttribute('aria-expanded', 'false'); $('#walletMenu').hidden = true; $('#walletBtn').setAttribute('aria-expanded', 'false'); }
 });
 document.addEventListener('input', e => { if (e.target.id === 'amt') calc(); });
 dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
 $('#netBtn').addEventListener('click', e => { e.stopPropagation(); const m = $('#netMenu'); m.hidden = !m.hidden; $('#netBtn').setAttribute('aria-expanded', String(!m.hidden)); });
-$('#walletBtn').addEventListener('click', () => { if (!state.account) connect(); else if (state.chainId !== target().id) switchNet(); else location.hash = '/dashboard'; });
+$('#walletBtn').addEventListener('click', e => {
+  if (!state.account) { connect(); return; }
+  e.stopPropagation();
+  const m = $('#walletMenu'); m.hidden = !m.hidden; $('#walletBtn').setAttribute('aria-expanded', String(!m.hidden));
+  $('#netMenu').hidden = true; $('#netBtn').setAttribute('aria-expanded', 'false');
+});
 $('#burger').addEventListener('click', () => { const n = $('#nav'); const o = n.classList.toggle('open'); $('#burger').setAttribute('aria-expanded', String(o)); });
 const flipTheme = () => { const r = document.documentElement; const cur = r.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'); r.dataset.theme = cur === 'light' ? 'dark' : 'light'; };
 $('#themeBtn').addEventListener('click', flipTheme); $('#themeLink').addEventListener('click', flipTheme);
