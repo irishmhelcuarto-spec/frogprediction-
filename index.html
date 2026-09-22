@@ -474,11 +474,51 @@ const CONFIG = {
     testnet: { id: 46630, hex: '0xb626', name: 'Robinhood Chain Testnet', rpc: 'https://rpc.testnet.chain.robinhood.com', explorer: 'https://explorer.testnet.chain.robinhood.com', faucet: 'https://faucet.quicknode.com/robinhood/testnet' },
     mainnet: { id: 4663, hex: '0x1237', name: 'Robinhood Chain', rpc: 'https://rpc.mainnet.chain.robinhood.com', explorer: 'https://robinhoodchain.blockscout.com' }
   },
-  contracts: { factory: '0x53Ce7e42428D576A1C2Def99A5B20DFab3436476', market: '0x53F0b131449402A65a8fBd8B1f73A55e8ed97049', oracle: null, usdc: null, registry: null }
+  contracts: { factory: '0x53Ce7e42428D576A1C2Def99A5B20DFab3436476', market: '0x53F0b131449402A65a8fBd8B1f73A55e8ed97049', oracle: null, usdc: null, registry: null },
+  /* Public URL of the indexer/API service (see the /indexer package). Powers Live Stats, the Leaderboard and
+     the price chart; everything else keeps working without it. Get the URL from Railway: the indexer service's
+     Settings -> Networking -> Generate Domain. Example: 'https://frog-indexer-production.up.railway.app' */
+  indexer: null
 };
 /* PREVIEW = sample data and no transactions. Becomes false once the chain has been read successfully. */
 let PREVIEW = true;
 let FEE = CONFIG.feeBps / 10000;
+
+/* ═════════ Indexer/API (stats, leaderboard, price history) ═════════
+   Independent of the direct-RPC read path above: works even while PREVIEW is true, and stays blank (rather
+   than erroring) if CONFIG.indexer is unset or the service is unreachable. */
+const IDX = { stats: null, leaderboard: null, prices: new Map(), fetchingPrices: new Set() };
+async function idxFetch(path) {
+  if (!CONFIG.indexer) return null;
+  try {
+    const res = await fetch(CONFIG.indexer.replace(/\/$/, '') + path, { cache: 'no-store' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+async function loadIdxStats() { const j = await idxFetch('/api/stats'); if (j) { IDX.stats = j; applyStats(); } }
+async function loadIdxLeaderboard() { const j = await idxFetch('/api/leaderboard'); if (j) { IDX.leaderboard = j.entries || []; applyLeaderboard(); } }
+async function loadIdxPrices(id) {
+  if (IDX.prices.has(id) || IDX.fetchingPrices.has(id)) return;
+  IDX.fetchingPrices.add(id);
+  const j = await idxFetch('/api/markets/' + id + '/prices');
+  IDX.fetchingPrices.delete(id);
+  if (j && j.points && j.points.length >= 2) { IDX.prices.set(id, j); if (location.hash === '#/market/' + id) route(true); }
+}
+function applyStats() {
+  const s = IDX.stats; if (!s) return;
+  const set = (elId, v) => { const el = document.getElementById(elId); if (el) el.textContent = v; };
+  set('st-total', s.totalMarkets); set('st-volume', usd(s.totalVolume)); set('st-active', s.activeMarkets);
+  set('st-users', s.totalUsers); set('st-settled', s.settledMarkets); set('st-assets', s.supportedAssets);
+  const note = document.getElementById('st-note'); if (note) note.textContent = 'Live numbers from the indexer.';
+}
+function applyLeaderboard() {
+  const body = document.getElementById('lb-body'); if (!body) return;
+  const rows = IDX.leaderboard;
+  if (!rows) { body.innerHTML = '<tr><td colspan="8" style="white-space:normal;text-align:center;padding:34px 14px;color:var(--muted)">Loading…</td></tr>'; return; }
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="8" style="white-space:normal;text-align:center;padding:34px 14px;color:var(--muted)">No ranked wallets yet. Rankings appear after markets settle and winners claim.</td></tr>'; return; }
+  body.innerHTML = rows.map((r, i) => `<tr><td>#${i + 1}</td><td>${short(r.wallet)}</td><td>${r.predictions}</td><td>${r.wins}</td><td>${r.losses}</td><td>${r.winRate == null ? '—' : r.winRate + '%'}</td><td>${usd(r.volume)}</td><td class="${r.pnl >= 0 ? 'up-c' : 'down-c'}">${r.pnl >= 0 ? '+' : '−'}${px(Math.abs(r.pnl))}</td></tr>`).join('');
+}
 
 /* ═════════ Helpers ═════════ */
 const $ = (s, r = document) => r.querySelector(s);
@@ -594,6 +634,28 @@ function bigChart(m) {
     <path d="${d}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
     ${marks.map(([i, l]) => `<line class="mk" x1="${x(i).toFixed(1)}" x2="${x(i).toFixed(1)}" y1="${pt - 6}" y2="${H - pb}"/><text x="${x(i).toFixed(1)}" y="${pt - 9}" text-anchor="middle">${l}</text>`).join('')}
     <line class="ref" x1="${pl}" x2="${W - pr}" y1="${y(refV).toFixed(1)}" y2="${y(refV).toFixed(1)}"/>
+    <rect x="${W - pr + 2}" y="${(y(cur) - 10).toFixed(1)}" width="70" height="20" rx="6" fill="${col}"/>
+    <text x="${W - pr + 37}" y="${(y(cur) + 4).toFixed(1)}" text-anchor="middle" style="fill:#06110b;font-weight:700">${px(cur)}</text>
+  </svg>`;
+}
+
+/** Real price chart built from indexer snapshots (as opposed to bigChart(), which draws the PREVIEW sample series). */
+function chainChart(m, data) {
+  const pts = data.points, W = 760, H = 300, pl = 8, pr = 74, pt = 22, pb = 22;
+  const ys = pts.map(p => p.p).concat(data.lockPrice ? [data.lockPrice] : []).concat(data.settlementPrice ? [data.settlementPrice] : []);
+  const lo = Math.min(...ys) * .9985, hi = Math.max(...ys) * 1.0015 || 1;
+  const t0 = pts[0].t, t1 = pts[pts.length - 1].t, tr = (t1 - t0) || 1;
+  const x = t => pl + (W - pl - pr) * (t - t0) / tr, y = v => pt + (H - pt - pb) * (1 - (v - lo) / (hi - lo));
+  const d = 'M' + pts.map(p => x(p.t).toFixed(1) + ',' + y(p.p).toFixed(1)).join('L');
+  const cur = pts[pts.length - 1].p, prev = pts[0].p, up = cur >= prev, col = up ? 'var(--up)' : 'var(--down)';
+  const grid = [0, .5, 1].map(f => { const v = hi - (hi - lo) * f; return `<line class="g" x1="${pl}" x2="${W - pr}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/><text x="${W - pr + 8}" y="${(y(v) + 4).toFixed(1)}">${px(v)}</text>`; }).join('');
+  const lockMark = data.lockPrice ? `<line class="mk" x1="${x(data.lockTime).toFixed(1)}" x2="${x(data.lockTime).toFixed(1)}" y1="${pt - 6}" y2="${H - pb}"/><text x="${x(data.lockTime).toFixed(1)}" y="${pt - 9}" text-anchor="middle">Lock</text><line class="ref" x1="${pl}" x2="${W - pr}" y1="${y(data.lockPrice).toFixed(1)}" y2="${y(data.lockPrice).toFixed(1)}"/>` : '';
+  const settleMark = data.settlementPrice ? `<line class="mk" x1="${x(data.endTime).toFixed(1)}" x2="${x(data.endTime).toFixed(1)}" y1="${pt - 6}" y2="${H - pb}"/><text x="${x(data.endTime).toFixed(1)}" y="${pt - 9}" text-anchor="middle">Settle</text>` : '';
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${m.sym} price chart, latest price ${px(cur)}">
+    ${grid}
+    <path d="${d}L${x(t1).toFixed(1)},${H - pb}L${x(t0).toFixed(1)},${H - pb}Z" fill="${col}" opacity=".1"/>
+    <path d="${d}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${lockMark}${settleMark}
     <rect x="${W - pr + 2}" y="${(y(cur) - 10).toFixed(1)}" width="70" height="20" rx="6" fill="${col}"/>
     <text x="${W - pr + 37}" y="${(y(cur) + 4).toFixed(1)}" text-anchor="middle" style="fill:#06110b;font-weight:700">${px(cur)}</text>
   </svg>`;
@@ -749,10 +811,10 @@ function homeView() {
       <div><h2 id="cta-t">Ready to make your prediction?</h2><p>Pick a market, choose a side, and watch it settle onchain.</p>
         <div class="cta-row"><a class="btn btn-lime" href="#/markets">Explore Markets ${ico('up')}</a>${faucetBtns()}</div></div>
       <div class="stats"><h4><span class="dot"></span>LIVE STATS</h4><dl>
-        <div><dt>Total Markets</dt><dd>—</dd></div><div><dt>Total Volume</dt><dd>—</dd></div>
-        <div><dt>Active Markets</dt><dd>—</dd></div><div><dt>Total Users</dt><dd>—</dd></div>
-        <div><dt>Settled Markets</dt><dd>—</dd></div><div><dt>Supported Assets</dt><dd>—</dd></div></dl>
-        <p class="note">Real numbers only. These fill in once contracts are deployed and the indexer is running.</p></div>
+        <div><dt>Total Markets</dt><dd id="st-total">—</dd></div><div><dt>Total Volume</dt><dd id="st-volume">—</dd></div>
+        <div><dt>Active Markets</dt><dd id="st-active">—</dd></div><div><dt>Total Users</dt><dd id="st-users">—</dd></div>
+        <div><dt>Settled Markets</dt><dd id="st-settled">—</dd></div><div><dt>Supported Assets</dt><dd id="st-assets">—</dd></div></dl>
+        <p class="note" id="st-note">Real numbers only. These fill in once the indexer is connected.</p></div>
     </div>
   </section>`;
 }
@@ -791,9 +853,16 @@ function marketView(id) {
   const kv = (k, v) => `<div class="rowkv"><span>${k}</span><span>${v}</span></div>`;
   const tagCls = open ? 'live' : (m.state === 'locked' || m.state === 'cancelled') ? 'lock' : 'done';
   const tagTxt = open ? 'Live' : m.state === 'locked' ? 'Locked' : m.state === 'upcoming' ? 'Upcoming' : m.state === 'cancelled' ? 'Cancelled' : 'Settled';
-  const chart = m.series
-    ? `${bigChart(m)}<div class="legend"><span><i></i>Price</span><span><i class="d"></i>${m.state === 'live' || m.state === 'upcoming' ? 'Start price' : 'Lock price'}</span><span>Dashed verticals mark round events</span>${PREVIEW ? '<span>Sample series, not live prices</span>' : ''}</div>`
-    : `<div class="empty" style="padding:26px 16px"><b>No price history yet</b>Charts need the indexer (a later step). The lock price and settlement price are read straight from the contract.</div>`;
+  const idxPrices = IDX.prices.get(m.id);
+  let chart;
+  if (m.series) {
+    chart = `${bigChart(m)}<div class="legend"><span><i></i>Price</span><span><i class="d"></i>${m.state === 'live' || m.state === 'upcoming' ? 'Start price' : 'Lock price'}</span><span>Dashed verticals mark round events</span>${PREVIEW ? '<span>Sample series, not live prices</span>' : ''}</div>`;
+  } else if (idxPrices) {
+    chart = `${chainChart(m, idxPrices)}<div class="legend"><span><i></i>Price</span>${m.lockPrice ? '<span><i class="d"></i>Lock price</span>' : ''}${!idxPrices.fullHistory ? '<span>Partial history: the indexer started collecting after this round began</span>' : ''}</div>`;
+  } else {
+    if (CONFIG.indexer) loadIdxPrices(m.id);
+    chart = `<div class="empty" style="padding:26px 16px"><b>${CONFIG.indexer ? 'Loading price history…' : 'No price history yet'}</b>${CONFIG.indexer ? 'Fetching from the indexer.' : 'Charts need the indexer, which is not connected yet.'} The lock price and settlement price are read straight from the contract.</div>`;
+  }
   return `<div class="wrap page"><a class="crumb" href="#/markets">← All markets</a>
     <div class="mp"><div>
       <div class="mp-head"><div class="tile" style="--h:${m.hue}">${m.sym.slice(0, 4)}</div><div><h1>${m.sym}</h1><div class="cname" style="font-size:14px">${m.name}</div></div>
@@ -831,9 +900,15 @@ function howView() {
 }
 
 function leaderboardView() {
+  const rowsHtml = IDX.leaderboard
+    ? (IDX.leaderboard.length
+        ? IDX.leaderboard.map((r, i) => `<tr><td>#${i + 1}</td><td>${short(r.wallet)}</td><td>${r.predictions}</td><td>${r.wins}</td><td>${r.losses}</td><td>${r.winRate == null ? '—' : r.winRate + '%'}</td><td>${usd(r.volume)}</td><td class="${r.pnl >= 0 ? 'up-c' : 'down-c'}">${r.pnl >= 0 ? '+' : '−'}${px(Math.abs(r.pnl))}</td></tr>`).join('')
+        : '<tr><td colspan="8" style="white-space:normal;text-align:center;padding:34px 14px;color:var(--muted)">No ranked wallets yet. Rankings appear after markets settle and winners claim.</td></tr>')
+    : '<tr><td colspan="8" style="white-space:normal;text-align:center;padding:34px 14px;color:var(--muted)">' + (CONFIG.indexer ? 'Loading…' : 'The leaderboard needs the indexer, which is not connected yet.') + '</td></tr>';
+  if (CONFIG.indexer) loadIdxLeaderboard();
   return `<div class="wrap page"><h1>Leaderboard</h1><p class="sub">Wallets ranked by profit and loss, shown as shortened addresses.</p>
     <div class="tablewrap" style="margin-top:22px"><table><thead><tr><th>Rank</th><th>Wallet</th><th>Predictions</th><th>Wins</th><th>Losses</th><th>Win rate</th><th>Volume</th><th>Profit/Loss</th></tr></thead>
-    <tbody><tr><td colspan="8" style="white-space:normal;text-align:center;padding:34px 14px;color:var(--muted)">No ranked wallets yet. Rankings appear after markets settle and winners claim.</td></tr></tbody></table></div></div>`;
+    <tbody id="lb-body">${rowsHtml}</tbody></table></div></div>`;
 }
 
 function resultText(m, p) {
@@ -1271,6 +1346,11 @@ setInterval(() => {
 setInterval(() => { if (!PREVIEW && !document.hidden && !(dm && dm.busy)) refreshChain(); }, 20000);
 
 walletUI(); route(); bootChain();
+loadIdxStats();
+setInterval(() => {
+  loadIdxStats();
+  if (location.hash.startsWith('#/leaderboard')) loadIdxLeaderboard();
+}, 30000);
 </script>
 </body>
 </html>
