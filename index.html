@@ -429,14 +429,7 @@ dialog::backdrop { background:rgba(2,10,5,.72); -webkit-backdrop-filter:blur(3px
       </div>
       <div class="wallet-wrap" id="walletWrap">
         <button class="btn btn-lime btn-sm wbtn" id="walletBtn" aria-haspopup="true" aria-expanded="false">Connect Wallet</button>
-        <div class="netmenu" id="walletMenu" hidden>
-          <div class="wm-addr" id="wmAddr" style="padding:10px 12px 4px;font-size:13px;color:var(--muted)"></div>
-          <button data-wact="copy">Copy address</button>
-          <button data-wact="explorer">View on explorer</button>
-          <button data-wact="dashboard"><b>Dashboard</b><small>Your predictions and claims</small></button>
-          <button data-wact="switch" id="wmSwitch" style="display:none"><b>Switch network</b><small>You're on the wrong network</small></button>
-          <button data-wact="disconnect"><b>Disconnect</b><small>Forgets this connection in the app</small></button>
-        </div>
+        <div class="netmenu" id="walletMenu" hidden></div>
       </div>
       <button class="icon-btn" id="themeBtn" aria-label="Switch light or dark theme"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/></svg></button>
       <button class="icon-btn burger" id="burger" aria-label="Open menu" aria-expanded="false"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
@@ -470,6 +463,62 @@ dialog::backdrop { background:rgba(2,10,5,.72); -webkit-backdrop-filter:blur(3px
 <dialog id="dlg" aria-labelledby="dlgTitle"><div class="dlg" id="dlgBody"></div></dialog>
 <div id="toast" role="status" aria-live="polite"></div>
 
+<!-- ═════════ Reown (WalletConnect) ═════════
+     Loaded as an ES module straight from esm.sh (no build step / bundler needed). Sets window.__reown, which
+     the app's own script below (getEth/connectReown) talks to. If this project ID ever needs to change, get a
+     new one at https://dashboard.reown.com -- and make sure the app's real domain is added there, since
+     WalletConnect checks the page's origin against the project's allowed domains. -->
+<script type="module">
+try {
+  const { createAppKit } = await import('https://esm.sh/@reown/appkit@1?bundle');
+  const { EthersAdapter } = await import('https://esm.sh/@reown/appkit-adapter-ethers@1?bundle');
+
+  const REOWN_PROJECT_ID = 'd2c6e84ed071da2ac7ca448512eb6dd2';
+  const rhTestnet = {
+    id: 46630,
+    caipNetworkId: 'eip155:46630',
+    chainNamespace: 'eip155',
+    name: 'Robinhood Chain Testnet',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: { default: { http: ['https://rpc.testnet.chain.robinhood.com'] } },
+    blockExplorers: { default: { name: 'Explorer', url: 'https://explorer.testnet.chain.robinhood.com' } }
+  };
+
+  const appKit = createAppKit({
+    adapters: [new EthersAdapter()],
+    networks: [rhTestnet],
+    projectId: REOWN_PROJECT_ID,
+    metadata: {
+      name: 'Frogdiction',
+      description: 'Onchain prediction markets built for Robinhood Chain Stock Tokens.',
+      url: location.origin,
+      icons: [location.origin + '/favicon.ico']
+    },
+    features: { analytics: false, email: false, socials: false }
+  });
+
+  window.__reown = {
+    open: () => appKit.open(),
+    close: () => appKit.close && appKit.close(),
+    // AppKit's method name for "give me the raw EIP-1193 provider" has moved between versions --
+    // try the ones documented across recent releases so this keeps working across upgrades.
+    getProvider: () => {
+      try { if (appKit.getProvider) return appKit.getProvider('eip155') || null; } catch { }
+      try { if (appKit.getWalletProvider) return appKit.getWalletProvider() || null; } catch { }
+      try { if (appKit.subscribeProviders) { let p = null; appKit.subscribeProviders(s => { p = s && s.eip155; }); return p; } } catch { }
+      return null;
+    },
+    isConnected: () => { try { return !!(appKit.getIsConnectedState ? appKit.getIsConnectedState() : appKit.getIsConnected && appKit.getIsConnected()); } catch { return false; } },
+    disconnect: () => { try { return appKit.disconnect && appKit.disconnect(); } catch { } }
+  };
+} catch (e) {
+  console.error('[frogdiction] Reown/WalletConnect failed to load', e);
+  window.__reown = null;
+} finally {
+  window.dispatchEvent(new Event('reown-ready'));
+}
+</script>
+
 <script>
 'use strict';
 /* ═════════ Config ═════════
@@ -494,6 +543,27 @@ const CONFIG = {
 /* PREVIEW = sample data and no transactions. Becomes false once the chain has been read successfully. */
 let PREVIEW = true;
 let FEE = CONFIG.feeBps / 10000;
+
+/* ═════════ Referrals ═════════
+   Captures ?ref=0x... from the URL once and remembers it (first-touch attribution, same as the onchain
+   referrerOf mapping, which is also set only once per wallet). Every prediction after that is sent through
+   the predict(...,address referrer) overload so the referrer earns their 3% commission on-chain. */
+const REF_KEY = 'fd_ref';
+function isAddr(a) { return typeof a === 'string' && /^0x[0-9a-fA-F]{40}$/.test(a); }
+function captureReferral() {
+  try {
+    const q = new URLSearchParams(location.hash.split('?')[1] || location.search || '');
+    const ref = q.get('ref');
+    if (isAddr(ref) && !localStorage.getItem(REF_KEY)) localStorage.setItem(REF_KEY, ref.toLowerCase());
+  } catch { }
+}
+function getReferral() {
+  try {
+    const r = localStorage.getItem(REF_KEY);
+    return isAddr(r) && (!state.account || r !== state.account.toLowerCase()) ? r : null;
+  } catch { return null; }
+}
+function referralLink() { return state.account ? location.origin + location.pathname + '#/markets?ref=' + state.account : ''; }
 
 /* ═════════ Indexer/API (stats, leaderboard, price history) ═════════
    Independent of the direct-RPC read path above: works even while PREVIEW is true, and stays blank (rather
@@ -935,9 +1005,14 @@ function dashboardView() {
   if (!state.account) return `<div class="wrap page"><h1>Dashboard</h1><div class="empty" style="margin-top:22px"><svg viewBox="0 0 200 160" aria-hidden="true"><use href="#frog-head"/></svg><b>Connect your wallet</b>Your address is your identity. No sign-up or personal details needed.<div style="margin-top:16px"><button class="btn btn-lime" data-act="connect">Connect Wallet</button></div></div></div>`;
   const st = (k, v) => `<div class="panel"><small>${k}</small><b>${v}</b></div>`;
   const emp = t => `<div class="empty" style="padding:22px 16px">${t}</div>`;
+  const referBox = `<section><h3>Refer & earn 3%</h3><div class="panel" style="display:block;padding:16px">
+      <p class="sub" style="margin:0 0 10px">Share your link. Anyone who predicts after opening it earns you a 3% commission on every prediction they place, for as long as they use Frogdiction${REF.referrer ? '' : '.'}${REF.referrer ? ` &middot; you were referred by ${addrLink(REF.referrer)}` : ''}</p>
+      <div class="field" style="max-width:520px"><input readonly value="${referralLink()}" onclick="this.select()"><button class="btn btn-lime btn-sm" type="button" onclick="navigator.clipboard?.writeText('${referralLink()}').then(()=>toast('Referral link copied.'))">Copy</button></div>
+      ${!PREVIEW ? `<p class="sub" style="margin:10px 0 0">Commissions earned so far: <b>${usd(REF.earned)}</b></p>` : ''}
+    </div></section>`;
   if (PREVIEW) return `<div class="wrap page"><h1>Dashboard</h1><p class="sub">${short(state.account)}</p>
     <div class="dash-stats">${st('Win rate', '—')}${st('Total volume', '—')}${st('Wins', '—')}${st('Losses', '—')}${st('Profit/Loss', '—')}</div>
-    <div class="stack"><section><h3>Active predictions</h3>${emp('No active predictions. <a href="#/markets" style="color:var(--limet)">Browse markets</a>')}</section>
+    <div class="stack">${referBox}<section><h3>Active predictions</h3>${emp('No active predictions. <a href="#/markets" style="color:var(--limet)">Browse markets</a>')}</section>
     <section><h3>Claimable winnings and refunds</h3>${emp('Nothing to claim yet.')}</section><section><h3>Prediction history</h3>${emp('Your settled predictions will appear here once the chain is connected.')}</section></div></div>`;
 
   const rows = MARKETS.map(m => ({ m, p: POS[m.id] })).filter(x => x.p && x.p.amount > 0);
@@ -961,20 +1036,28 @@ function dashboardView() {
   return `<div class="wrap page"><h1>Dashboard</h1><p class="sub">${short(state.account)}${state.chainId !== target().id ? ' · switch to ' + target().name + ' to load your positions' : ''}</p>
     <div class="dash-stats">${st('Win rate', decided ? Math.round(wins / decided * 100) + '%' : '—')}${st('Total volume', usd(volume))}${st('Wins', wins)}${st('Losses', losses)}${st('Profit/Loss (est.)', (pnl >= 0 ? '+' : '−') + px(Math.abs(pnl)))}</div>
     ${refundedRounds ? `<p class="risk" style="margin:-8px 0 16px">Refunded rounds (nobody on the other side, or an unchanged price) do not count as wins or losses. Your pick was right in ${refundedRight} of ${refundedRounds} of them.</p>` : ''}
-    <div class="stack"><section><h3>Active predictions</h3>${table(active, false) || emp('No active predictions. <a href="#/markets" style="color:var(--limet)">Browse markets</a>')}</section>
+    <div class="stack">${referBox}<section><h3>Active predictions</h3>${table(active, false) || emp('No active predictions. <a href="#/markets" style="color:var(--limet)">Browse markets</a>')}</section>
     <section><h3>Claimable winnings</h3>${table(claimable, true) || emp('Nothing to claim yet.')}</section>
     <section><h3>Prediction history</h3>${table(history, true) || emp('Your settled predictions will appear here.')}</section></div></div>`;
 }
 
 /* ═════════ Wallet & chain ═════════ */
 const state = { account: null, chainId: null };
+/* Non-null once connected through Reown/WalletConnect; getEth() then routes every call (reads, sends,
+   network switches) through that provider instead of the injected window.ethereum. */
+let walletProvider = null;
+function getEth() { return walletProvider || window.ethereum; }
 const target = () => CONFIG.chains[CONFIG.network];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const CH = { usdc: null, registry: null, bal: 0, allow: 0 };
 const POS = {}; // marketId -> { amount, isUp, claimed, claimable } for the connected wallet
 
 /* 4-byte selectors (keccak-256 of the signatures in the Solidity contracts). */
-const FN = {"marketCount": "0xec979082", "getMarket": "0xeb44fdd3", "positions": "0xe684d718", "claimable": "0xa0c7f71c", "predict": "0x6834dc23", "claim": "0x379607f5", "minBet": "0x9619367d", "maxBet": "0x2e5b2168", "feeBps": "0x24a9d853", "settlementToken": "0x7b9e618d", "registry": "0x7b103999", "balanceOf": "0x70a08231", "allowance": "0xdd62ed3e", "approve": "0x095ea7b3", "faucet": "0xde5f72fd", "getPrice": "0x41976e09", "getAsset": "0x30b8b2c6"};
+const FN = {"marketCount": "0xec979082", "getMarket": "0xeb44fdd3", "positions": "0xe684d718", "claimable": "0xa0c7f71c", "predict": "0x6834dc23", "predictRef": "0xe883bf0d", "referrerOf": "0xd21cacdf", "referralEarned": "0x31cd6179", "claim": "0x379607f5", "minBet": "0x9619367d", "maxBet": "0x2e5b2168", "feeBps": "0x24a9d853", "settlementToken": "0x7b9e618d", "registry": "0x7b103999", "balanceOf": "0x70a08231", "allowance": "0xdd62ed3e", "approve": "0x095ea7b3", "faucet": "0xde5f72fd", "getPrice": "0x41976e09", "getAsset": "0x30b8b2c6"};
+/* predictRef = predict(uint256,bool,uint256,address) -- the referral-aware overload added to FrogdictionMarket.
+   referrerOf / referralEarned read the new public mappings. Selectors were computed (and double-checked
+   against the selectors already in this file) from the updated FrogdictionMarket.sol -- redeploy that
+   contract before these will resolve to anything onchain. */
 const ERR = {"0x2c5211c6": "InvalidAmount", "0x1fbaba35": "AmountTooLow", "0xfd7850ad": "AmountTooHigh", "0x3b9e91cf": "AlreadyPredicted", "0x0b5f6bf0": "MarketClosed", "0x774620b8": "MarketNotStarted", "0x7db1be50": "MarketNotFound", "0xf4d678b8": "InsufficientBalance", "0x13be252b": "InsufficientAllowance", "0xba329a9b": "NotSettled", "0xabf0f034": "NoPosition", "0x618c7242": "NotWinner", "0x646cf558": "AlreadyClaimed", "0xd93c0665": "EnforcedPause", "0x04578698": "OracleStale", "0x00bfc921": "InvalidPrice", "0xb0a6ea29": "TransferAmountMismatch", "0xacd7928c": "WindowMissed", "0x085de625": "TooEarly", "0x5f0ccd7c": "AlreadyLocked", "0x560ff900": "AlreadySettled", "0xf525e320": "InvalidStatus", "0x7454c9a2": "FeedNotConfigured", "0x1fa6db66": "FeedDisabled", "0x6e4ba61d": "PriceOutOfBounds", "0x470cbf47": "AssetNotFound", "0xf611219f": "AssetNotActive", "0x12272bab": "FaucetCooldown"};
 const HUMAN = {
   InvalidAmount: 'Enter an amount above zero.', AmountTooLow: 'That is below the minimum amount.', AmountTooHigh: 'That is above the maximum amount.',
@@ -999,7 +1082,7 @@ const addrLink = a => a ? `<a href="${explorerAddr(a)}" target="_blank" rel="noo
 let rpcId = 1;
 /* Reads go through the connected wallet when it is on the right network, otherwise straight to the public RPC. */
 async function rpc(method, params) {
-  const eth = window.ethereum;
+  const eth = getEth();
   if (state.account && eth && state.chainId === target().id) return eth.request({ method, params });
   const res = await fetch(target().rpc, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: rpcId++, method, params }) });
   const j = await res.json();
@@ -1088,6 +1171,19 @@ async function loadWallet() {
     CH.bal = Number(BigInt(b)) / 1e6; CH.allow = Number(BigInt(al)) / 1e6;
   } catch { }
 }
+const REF = { earned: 0, referrer: null };
+async function loadReferral() {
+  if (!state.account || PREVIEW || !CONFIG.contracts.market) return;
+  try {
+    const [ew, rw] = await Promise.all([
+      ethCall(CONFIG.contracts.market, FN.referralEarned + encA(state.account)),
+      ethCall(CONFIG.contracts.market, FN.referrerOf + encA(state.account))
+    ]);
+    REF.earned = Number(wBig(ew, 0)) / 1e6;
+    const r = wAddr(rw, 0);
+    REF.referrer = r === '0x0000000000000000000000000000000000000000' ? null : r;
+  } catch { }
+}
 function setStrip(mode, e) {
   const el = $('#strip'); if (!el) return;
   el.textContent = mode === 'live' ? 'TESTNET: markets are read from Robinhood Chain Testnet. TEST USDC has no real value.'
@@ -1096,16 +1192,16 @@ function setStrip(mode, e) {
 }
 async function bootChain() {
   if (!CONFIG.contracts.market) { setStrip('preview'); return; }
-  try { await loadChain(); PREVIEW = false; setStrip('live'); await loadPositions(); await loadWallet(); }
+  try { await loadChain(); PREVIEW = false; setStrip('live'); await loadPositions(); await loadWallet(); await loadReferral(); }
   catch (e) { PREVIEW = true; setStrip('error', e); }
   route(true);
 }
 async function refreshChain() {
-  try { await loadChain(); await loadPositions(); await loadWallet(); } catch { }
+  try { await loadChain(); await loadPositions(); await loadWallet(); await loadReferral(); } catch { }
   route(true);
 }
 async function afterWalletChange() {
-  if (PREVIEW && CONFIG.contracts.market) await bootChain(); else { await loadPositions(); await loadWallet(); route(true); }
+  if (PREVIEW && CONFIG.contracts.market) await bootChain(); else { await loadPositions(); await loadWallet(); await loadReferral(); route(true); }
   refreshDialog();
 }
 
@@ -1114,14 +1210,26 @@ function walletUI() {
   b.classList.toggle('wrong', !!wrong);
   b.innerHTML = !state.account ? 'Connect Wallet' : wrong ? 'Switch network' : `<span class="addr">${short(state.account)}</span>`;
   $('#netDot').classList.toggle('warn', !!wrong);
-  if (!state.account) { $('#walletMenu').hidden = true; b.setAttribute('aria-expanded', 'false'); return; }
-  $('#wmAddr').textContent = state.account;
-  $('#wmSwitch').style.display = wrong ? '' : 'none';
+  const menu = $('#walletMenu');
+  if (!state.account) {
+    menu.innerHTML = `
+      <button data-wact="connect-injected"><b>Browser wallet</b><small>MetaMask or another injected wallet</small></button>
+      <button data-wact="connect-reown"><b>WalletConnect</b><small>Scan a QR with any mobile wallet</small></button>`;
+    return;
+  }
+  menu.innerHTML = `
+    <div id="wmAddr" style="padding:10px 12px 4px;font-size:13px;color:var(--muted)">${state.account}</div>
+    <button data-wact="copy">Copy address</button>
+    <button data-wact="explorer">View on explorer</button>
+    <button data-wact="dashboard"><b>Dashboard</b><small>Your predictions and claims</small></button>
+    ${wrong ? `<button data-wact="switch" id="wmSwitch"><b>Switch network</b><small>You're on the wrong network</small></button>` : ''}
+    <button data-wact="disconnect"><b>Disconnect</b><small>Forgets this connection in the app</small></button>`;
 }
 function disconnectWallet() {
   state.account = null; state.chainId = null;
   for (const k in POS) delete POS[k];
   CH.bal = 0; CH.allow = 0;
+  if (walletProvider) { try { window.__reown && window.__reown.disconnect(); } catch { } walletProvider = null; }
   walletUI();
   if (dlg.open) dlg.close();
   if (location.hash.startsWith('#/dashboard')) location.hash = '/';
@@ -1129,7 +1237,7 @@ function disconnectWallet() {
   toast('Disconnected. Your wallet still holds any test funds.');
 }
 async function switchNet() {
-  const eth = window.ethereum, c = target(); if (!eth) return;
+  const eth = getEth(), c = target(); if (!eth) return;
   try { await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: c.hex }] }); }
   catch (e) {
     if (e && (e.code === 4902 || e.code === -32603)) {
@@ -1140,20 +1248,51 @@ async function switchNet() {
   try { state.chainId = parseInt(await eth.request({ method: 'eth_chainId' }), 16); } catch { }
   walletUI(); afterWalletChange();
 }
+function bindEthEvents(eth) {
+  if (!eth || !eth.on || eth.__fdBound) return;
+  eth.__fdBound = true;
+  eth.on('accountsChanged', a => { state.account = a[0] || null; if (!state.account) { for (const k in POS) delete POS[k]; } walletUI(); afterWalletChange(); });
+  eth.on('chainChanged', c => { state.chainId = parseInt(c, 16); walletUI(); afterWalletChange(); });
+  if (eth.on) eth.on('disconnect', () => disconnectWallet());
+}
 async function connect() {
   const eth = window.ethereum;
-  if (!eth) { toast('No wallet found. Install MetaMask or another EVM wallet to connect.'); return; }
+  if (!eth) { toast('No browser wallet found. Install MetaMask, or use WalletConnect instead.'); return; }
   try {
     const acc = await eth.request({ method: 'eth_requestAccounts' });
+    walletProvider = null; // explicitly using the injected wallet, not Reown
     state.account = acc[0]; state.chainId = parseInt(await eth.request({ method: 'eth_chainId' }), 16);
     walletUI(); if (state.chainId !== target().id) toast('Wrong network. Switch to ' + target().name + '.');
     await afterWalletChange();
   } catch (e) { toast(e && e.code === 4001 ? 'Connection request was rejected.' : 'Could not connect the wallet.'); }
 }
-if (window.ethereum && window.ethereum.on) {
-  window.ethereum.on('accountsChanged', a => { state.account = a[0] || null; if (!state.account) { for (const k in POS) delete POS[k]; } walletUI(); afterWalletChange(); });
-  window.ethereum.on('chainChanged', c => { state.chainId = parseInt(c, 16); walletUI(); afterWalletChange(); });
+/* Polls briefly for the provider Reown's modal hands back once the user finishes connecting in it
+   (scanning a QR, picking a social login, etc). Resolves null if they close the modal without connecting. */
+function waitForReownProvider(timeoutMs) {
+  return new Promise(resolve => {
+    const start = Date.now();
+    const iv = setInterval(() => {
+      const p = window.__reown && window.__reown.getProvider ? window.__reown.getProvider() : null;
+      if (p) { clearInterval(iv); resolve(p); }
+      else if (Date.now() - start > (timeoutMs || 90000)) { clearInterval(iv); resolve(null); }
+    }, 500);
+  });
 }
+async function connectReown() {
+  if (!window.__reown) { toast('WalletConnect is still loading. Try again in a moment.'); return; }
+  try {
+    window.__reown.open();
+    const provider = await waitForReownProvider();
+    if (!provider) return; // modal closed without connecting
+    walletProvider = provider;
+    const acc = await provider.request({ method: 'eth_requestAccounts' });
+    state.account = acc[0]; state.chainId = parseInt(await provider.request({ method: 'eth_chainId' }), 16);
+    bindEthEvents(provider);
+    walletUI(); if (state.chainId !== target().id) toast('Wrong network. Switch to ' + target().name + '.');
+    await afterWalletChange();
+  } catch (e) { toast(e && e.code === 4001 ? 'Connection request was rejected.' : 'Could not connect with WalletConnect.'); }
+}
+bindEthEvents(window.ethereum);
 
 /* ═════════ Transactions ═════════ */
 const escHtml = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1172,7 +1311,7 @@ function errMsg(e) {
 async function runTx(to, data, say) {
   await ethCall(to, data, state.account); // simulate first: contract errors show up before any wallet prompt
   say('Waiting for wallet…');
-  const hash = await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from: state.account, to, data }] });
+  const hash = await getEth().request({ method: 'eth_sendTransaction', params: [{ from: state.account, to, data }] });
   say('Confirming…', hash);
   for (let i = 0; i < 90; i++) {
     let r = null; try { r = await rpc('eth_getTransactionReceipt', [hash]); } catch { }
@@ -1243,10 +1382,11 @@ function renderDialog() {
   else if (PREVIEW) acts = `<button class="btn btn-lime" disabled aria-disabled="true">Approve TEST USDC</button><button class="btn btn-ghost" disabled aria-disabled="true">Confirm prediction</button>`;
   else acts = `<button class="btn btn-lime" id="btnApprove" data-act="approve">Approve TEST USDC</button><button class="btn btn-ghost" id="btnConfirm" data-act="confirm">Confirm prediction</button>`;
   const balRow = live ? `<div class="rowkv" style="border:0;padding:0"><span>Your balance</span><b>${CH.bal.toLocaleString('en-US', { maximumFractionDigits: 2 })} TEST USDC</b></div>` : '';
+  const refRow = getReferral() ? `<div class="notice ok" style="margin-top:8px">Referral link detected — ${short(getReferral())} earns a 3% commission on your predictions.</div>` : '';
   $('#dlgBody').innerHTML = `
     <div class="dlg-head"><div class="tile" style="--h:${m.hue}">${m.sym.slice(0, 4)}</div><div><h3 id="dlgTitle">${m.sym}: Predict <span class="${up ? 'up-c' : 'down-c'}">${side}</span></h3><div class="cname">${m.dur === 60 ? '1 hour' : m.dur + ' minute'} round #${m.round}. TESTNET</div></div><button class="icon-btn x" data-act="close" aria-label="Close">${ico('x')}</button></div>
     <div class="rowkv" style="border:0;padding:0"><span>Current price</span><b>${px(m.price)}</b></div>
-    ${balRow}
+    ${balRow}${refRow}
     <div><label class="sr" for="amt">Amount in TEST USDC</label><div class="field"><input id="amt" inputmode="decimal" autocomplete="off" value="${dm.amt}"><span>TEST USDC</span></div>
       <div class="chips" style="margin-top:10px">${[5, 10, 50, 100].map(v => `<button class="chip" data-amt="${v}">${v}</button>`).join('')}<span class="risk" style="align-self:center">Min ${CONFIG.minBet}, max ${CONFIG.maxBet}</span></div><div class="err" id="err" role="alert"></div><div id="needUsdc"></div></div>
     <div class="summary"><div class="rowkv"><span>Potential payout (TEST USDC)</span><span class="big" id="pay">—</span></div><div class="rowkv"><span>Multiple</span><span id="mul">—</span></div><div class="rowkv"><span>Protocol fee</span><span>${CONFIG.feeBps / 100}% of the total pool</span></div></div>
@@ -1292,7 +1432,11 @@ async function doPredict() {
   if (!dm || dm.busy || !ready()) return;
   dm.busy = true; calc();
   try {
-    const hash = await runTx(CONFIG.contracts.market, FN.predict + encU(dm.m.id) + encB(dm.side === 'UP') + encU(toUnits(dm.amt)), setTx);
+    const ref = getReferral();
+    const call = ref
+      ? FN.predictRef + encU(dm.m.id) + encB(dm.side === 'UP') + encU(toUnits(dm.amt)) + encA(ref)
+      : FN.predict + encU(dm.m.id) + encB(dm.side === 'UP') + encU(toUnits(dm.amt));
+    const hash = await runTx(CONFIG.contracts.market, call, setTx);
     setTx('Confirmed. Your prediction is onchain.', hash, 'ok');
     dm.done = true;
     dm.placed = { side: dm.side, amt: dm.amt, sym: dm.m.sym, id: dm.m.id, round: dm.m.round };
@@ -1338,6 +1482,8 @@ document.addEventListener('click', e => {
     else if (k === 'dashboard') { location.hash = '/dashboard'; }
     else if (k === 'switch') { switchNet(); }
     else if (k === 'disconnect') { disconnectWallet(); }
+    else if (k === 'connect-injected') { connect(); }
+    else if (k === 'connect-reown') { connectReown(); }
     $('#walletMenu').hidden = true; $('#walletBtn').setAttribute('aria-expanded', 'false');
     return;
   }
@@ -1352,7 +1498,6 @@ document.addEventListener('input', e => { if (e.target.id === 'amt') calc(); });
 dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
 $('#netBtn').addEventListener('click', e => { e.stopPropagation(); const m = $('#netMenu'); m.hidden = !m.hidden; $('#netBtn').setAttribute('aria-expanded', String(!m.hidden)); });
 $('#walletBtn').addEventListener('click', e => {
-  if (!state.account) { connect(); return; }
   e.stopPropagation();
   const m = $('#walletMenu'); m.hidden = !m.hidden; $('#walletBtn').setAttribute('aria-expanded', String(!m.hidden));
   $('#netMenu').hidden = true; $('#netBtn').setAttribute('aria-expanded', 'false');
@@ -1386,6 +1531,7 @@ setInterval(() => {
 }, 1000);
 setInterval(() => { if (!PREVIEW && !document.hidden && !(dm && dm.busy)) refreshChain(); }, 20000);
 
+captureReferral();
 walletUI(); route(); bootChain();
 loadIdxStats();
 setInterval(() => {
